@@ -1,9 +1,54 @@
-﻿<div class="flex flex-col gap-5 items-center bg-white rounded-lg text-black p-6">
-    
-    <Textarea Placeholder="Type something...." IsDisabled=false Title="Text" />
-    <Textarea Placeholder=" " IsDisabled=true Title="Morse" />
+﻿@using AraratMorse.Stores
+@using AraratMorse.Stores.ConversionState
+@using AraratMorse.Stores.TranslationState;
+@using AraratMorse.Stores.LanguageState;
 
-   
+@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+
+<div class="flex flex-col gap-5 items-center bg-white rounded-lg w-full lg:w-1/2 lg:mx-auto  text-black p-6">
+    
+    @* Input *@
+    <Textarea Placeholder="Type something..." Text="@TranslationState.Value.Input" IsReadonly=false TextChanged="Convert" Title="@fTitle()" />
+
+    @* Output *@
+    <Textarea Placeholder=" " Text="@TranslationState.Value.Output" IsReadonly=true Title="@sTitle()" />
+
+    @* Error Section *@
+    @if (!string.IsNullOrEmpty(TranslationState.Value.Error))
+    {
+        <TranslationError Message="@TranslationState.Value.Error"/>
+    }
 </div>
+
+@code{
+
+    #region States
+    [Inject]
+    private IState<ConversionState> ConversionState {get;set;}
+
+    [Inject]
+    private IState<TranslationState> TranslationState { get; set; }
+
+    [Inject]
+    private IState<LanguageState> LanguageState { get; set; }
+
+    [Inject]
+    private IDispatcher Dispacher { get; set; }
+    #endregion
+
+    private string fTitle() => ConversionState.Value.IsEncoding ? "Text" : "Morse";
+    private string sTitle() => ConversionState.Value.IsEncoding ? "Morse" : "Text";
+
+
+    private void Convert(string input)
+    {
+        Dispacher.Dispatch(new TranslationAction() { Input = input, IsEncoding = ConversionState.Value.IsEncoding, Language = LanguageState.Value.Language });
+    }
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+    }
+}
 
 

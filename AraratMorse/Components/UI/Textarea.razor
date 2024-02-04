@@ -1,72 +1,115 @@
-﻿@using MorseSharp;
+﻿@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+@using AraratMorse.Stores.TranslationState;
 
-<div @onmouseover="OnMouseOver" @onmouseout="OnMouseOut" class="relative w-full">
-    <span class="@((!canCopy) ? "absolute" : "hidden") z-0 absolute select-none right-1 top-2 text-sm text-gray-500">@Title</span>
+@inject IClipLazor clipboard;
+
+<div class="relative w-full p-4">
+
+    @* The title text *@
+    <span class="@((!canCopy) ? "absolute" : "hidden") z-0 absolute select-none right-4 top-1 text-sm text-black rounded pt-1 px-2 bg-gray-100">@Title</span>
+
 
     @if (canCopy)
     {
         <div @onclick="CopyToClipboard" class="absolute right-1 top-2">
-            <span class="@(isCopied ? "absolute" : "hidden") right-10 text-sm bg-gray-200 px-2 py-1 rounded">Copied</span>
-            <button class="bg-gray-200 absolute right-1 px-2 py-1 z-0 rounded">
+
+            @* Copied Message *@
+            <span class="@(isCopied ? "absolute" : "hidden") right-11 text-sm bg-gray-100 top-0 pt-1 px-2 rounded">Copied</span>
+
+            @* Copied Button *@
+            <button class="bg-gray-100 absolute right-3 top-0 pt-1 px-2  z-0 rounded">
                 @if (isCopied)
                 {
-                    <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 20 20"><path fill="currentColor" d="M7.085 3A1.5 1.5 0 0 1 8.5 2h3a1.5 1.5 0 0 1 1.415 1H14.5A1.5 1.5 0 0 1 16 4.5v4.707A5.5 5.5 0 0 0 10.257 18H5.5A1.5 1.5 0 0 1 4 16.5v-12A1.5 1.5 0 0 1 5.5 3h1.585ZM8.5 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3ZM19 14.5a4.5 4.5 0 1 1-9 0a4.5 4.5 0 0 1 9 0Zm-2.146-1.854a.5.5 0 0 0-.708 0L13.5 15.293l-.646-.647a.5.5 0 0 0-.708.708l1 1a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0 0-.708Z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path fill="currentColor" d="M7.085 3A1.5 1.5 0 0 1 8.5 2h3a1.5 1.5 0 0 1 1.415 1H14.5A1.5 1.5 0 0 1 16 4.5v4.707A5.5 5.5 0 0 0 10.257 18H5.5A1.5 1.5 0 0 1 4 16.5v-12A1.5 1.5 0 0 1 5.5 3h1.585ZM8.5 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3ZM19 14.5a4.5 4.5 0 1 1-9 0a4.5 4.5 0 0 1 9 0Zm-2.146-1.854a.5.5 0 0 0-.708 0L13.5 15.293l-.646-.647a.5.5 0 0 0-.708.708l1 1a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0 0-.708Z" /></svg>
                 }
                 else
                 {
-                    <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 20 20"><path fill="currentColor" d="M7.085 3A1.5 1.5 0 0 1 8.5 2h3a1.5 1.5 0 0 1 1.415 1H14.5A1.5 1.5 0 0 1 16 4.5v12a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 16.5v-12A1.5 1.5 0 0 1 5.5 3h1.585ZM8.5 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3ZM7.085 4H5.5a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-12a.5.5 0 0 0-.5-.5h-1.585A1.5 1.5 0 0 1 11.5 5h-3a1.5 1.5 0 0 1-1.415-1Z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path fill="currentColor" d="M7.085 3A1.5 1.5 0 0 1 8.5 2h3a1.5 1.5 0 0 1 1.415 1H14.5A1.5 1.5 0 0 1 16 4.5v12a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 16.5v-12A1.5 1.5 0 0 1 5.5 3h1.585ZM8.5 3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3ZM7.085 4H5.5a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-12a.5.5 0 0 0-.5-.5h-1.585A1.5 1.5 0 0 1 11.5 5h-3a1.5 1.5 0 0 1-1.415-1Z" /></svg>
 
                 }
             </button>
         </div>
     }
     
-    <textarea @bind="txt" class="bg-gray-100 w-full rounded text-black placeholder-black p-2 resize-none shadow-md focus:outline-none" disabled="@IsDisabled" rows="4" placeholder="@Placeholder" @oninput="CanCopy" />
+    @* The textarea *@
+    @if (IsReadonly)
+    {
+        <textarea @bind="Text" class="bg-gray-100 w-full rounded text-black placeholder-black p-2 resize-none shadow-md focus:outline-none" rows="4" placeholder="@Placeholder" @oninput="CanCopy" readonly />
+
+    }
+    else
+    {
+        <textarea @bind="Text" class="bg-gray-100 w-full rounded text-black placeholder-black p-2 resize-none shadow-md focus:outline-none" rows="4" placeholder="@Placeholder" @oninput="CanCopy" />
+
+    }
+
 </div>
 
 @code {
 
-    [Parameter]
-    public bool IsDisabled { get; set; }
+    #region States
 
-    [Parameter]
-    public string? Placeholder { get; set; }
+    [Inject]
+    private IState<TranslationState> TranslationState { get; set; }
 
-    [Parameter]
-    public string? Title { get; set; }
+    #endregion
 
-    private string? txt { get; set; }
-
-    private bool IsHovered { get; set; }
+    #region Fields
 
     private bool canCopy;
 
     private bool isCopied = false;
 
+    #endregion
+
+    #region Parameters
+    [Parameter]
+    public bool IsReadonly { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter] 
+    public EventCallback<string> TextChanged { get; set; }
+
+    [Parameter]
+    public string? Text { get; set; }
+
+    [Parameter]
+    public string? Placeholder { get; set; }
+
+    #endregion
+
+    #region Methods
+    protected override void OnParametersSet()
+    {
+        /*
+         * If the text is not empty and there was not any error
+         * the copy button will be displayed.
+         */
+        if (!string.IsNullOrEmpty(Text) && string.IsNullOrEmpty(TranslationState.Value.Error))
+            canCopy = true;
+        else
+            canCopy = false;
+    }
+
     public async Task CanCopy(ChangeEventArgs e)
     {
-        txt = e.Value?.ToString();
-        canCopy = !string.IsNullOrEmpty(txt) && txt.Length > 0 && txt != Placeholder;
+        Text = e.Value?.ToString();
+
+        await TextChanged.InvokeAsync(Text);
         await InvokeAsync(StateHasChanged);
     }
-
-    private void OnMouseOver()
-    {
-        IsHovered = true;
-        // Additional logic when the div is hovered
-    }
-
-    private void OnMouseOut()
-    {
-        IsHovered = false;
-        // Additional logic when the div is not hovered
-    }
+    
 
     private async Task CopyToClipboard()
     {
 
         isCopied = !isCopied;
-        await Task.Delay(2500);
+        await clipboard.WriteTextAsync(Text.AsMemory());
+        await Task.Delay(1000);
         isCopied = false;
     }
+
+    #endregion
 }

@@ -1,15 +1,19 @@
-﻿@using MorseSharp;
+﻿@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+@using MorseSharp;
 
 <div class="relative">
     @* Dropdown button *@
-    <button @onclick="ToggleMenu" class="text-black bg-gray-50 hover:bg-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center" type="button">
-        @Enum.GetName(SelectedLanguage)
+    <button @onclick="OpenMenu" class="text-black bg-gray-50 hover:bg-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center" type="button">
+        @Enum.GetName(LanguageState.Value.Language)
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M12 14.975q-.2 0-.375-.062T11.3 14.7l-4.6-4.6q-.275-.275-.275-.7t.275-.7q.275-.275.7-.275t.7.275l3.9 3.9l3.9-3.9q.275-.275.7-.275t.7.275q.275.275.275.7t-.275.7l-4.6 4.6q-.15.15-.325.213t-.375.062Z" /></svg>
     </button>
 
+    @* Overlay *@
+    <div @onclick="CloseMenu" class="@(DropdownState.Value.IsMenuOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10 "></div>
+    
     @* Dropdown Menu *@
-    <div class="absolute z-10 @(isMenuOpened ? "block" : "hidden") top-18 left-0 bg-white divide-y divide-gray-100 rounded-lg shadow">
-        <ul class="p-1 text-sm text-gray-900 w-full" aria-labelledby="dropdownDefaultButton">
+    <div class="absolute z-10 @(DropdownState.Value.IsMenuOpened ? "block" : "hidden") top-18 left-0 bg-white divide-y rounded-lg shadow z-40">
+        <ul class="p-1 text-sm text-gray-900 w-full">
             @foreach (Language item in Enum.GetValues<Language>())
             {
                 <li>
@@ -21,19 +25,3 @@
         </ul>
     </div>
 </div>
-
-
-@code {
-    private Language SelectedLanguage { get; set; } = Language.Kurdish;
-
-    private bool isMenuOpened = false;
-
-    private void ToggleMenu() => isMenuOpened = !isMenuOpened;
-
-    public void ChangeLanguage(Language language)
-    {
-
-        SelectedLanguage = language;
-        isMenuOpened = false;
-    }
-}

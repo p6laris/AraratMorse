@@ -1,35 +1,38 @@
-﻿
+﻿@inject NavigationManager Navigation
+@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+
+@* Menu small screen *@
 <button @onclick="ToggleSidebar" type="button" class="inline-flex items-center p-2 mt-2 ml-3 text-sm text-white rounded-lg sm:hidden">
     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256"><path fill="currentColor" d="M220 128a4 4 0 0 1-4 4H40a4 4 0 0 1 0-8h176a4 4 0 0 1 4 4ZM40 68h176a4 4 0 0 0 0-8H40a4 4 0 0 0 0 8Zm176 120H40a4 4 0 0 0 0 8h176a4 4 0 0 0 0-8Z" /></svg>
 </button>
 
+@* The menu *@
 <aside class="fixed bg-white top-0 left-0 z-40 w-64 h-screen transition-transform sm:translate-x-0 @(!isOpened ? " -translate-x-full" : "translate-x-0")" aria-label="Sidebar">
     <div class="h-full px-3 py-4 overflow-y-auto bg-white text-black ">
         <ul class="space-y-2 font-medium">
             @if (isOpened)
             {
                 <li>
-                    <a href="#" @onclick="ToggleSidebar" class="flex items-center p-2 rounded-lg hover:bg-gray-100 text-black group">
+                    <a @onclick="ToggleSidebar" class="flex items-center p-2 rounded-lg hover:bg-gray-100 text-black group cursor-pointer">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 22c-4.714 0-7.071 0-8.536-1.465C2 19.072 2 16.714 2 12s0-7.071 1.464-8.536C4.93 2 7.286 2 12 2c4.714 0 7.071 0 8.535 1.464C22 4.93 22 7.286 22 12c0 4.714 0 7.071-1.465 8.535C19.072 22 16.714 22 12 22ZM8.97 8.97a.75.75 0 0 1 1.06 0L12 10.94l1.97-1.97a.75.75 0 0 1 1.06 1.06L13.06 12l1.97 1.97a.75.75 0 1 1-1.06 1.06L12 13.06l-1.97 1.97a.75.75 0 1 1-1.06-1.06L10.94 12l-1.97-1.97a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" /></svg>
                         <span class="ml-3">Close</span>
                     </a>
                 </li>
             }
-
             <li>
-                <a href="#" class="flex items-center p-2 text-black rounded-lg hover:bg-gray-100 group">
+                <a @onclick=NavigateToConverter class="flex items-center p-2 text-black rounded-lg hover:bg-gray-100 group cursor-pointer">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="currentColor"><path d="m11.985 21.449l.489-.824c.378-.64.568-.96.872-1.136c.304-.177.687-.184 1.453-.197c1.13-.02 1.84-.089 2.434-.335a4.502 4.502 0 0 0 2.438-2.435c.161-.39.247-.83.292-1.406c.027-.354.041-.53-.053-.674c-.095-.143-.276-.205-.638-.327C17.864 13.64 14.752 12.481 13 11c-1.98-1.674-3.754-5.054-4.418-6.414c-.142-.29-.213-.435-.336-.511c-.123-.076-.28-.074-.592-.07c-1.808.02-2.637.126-3.504.657a4.502 4.502 0 0 0-1.486 1.486C2 7.23 2 8.703 2 11.65v.9c0 2.096 0 3.145.343 3.972a4.502 4.502 0 0 0 2.437 2.435c.595.246 1.304.316 2.434.335c.766.013 1.15.02 1.453.197c.305.177.494.496.873 1.136l.488.824c.435.735 1.522.735 1.957 0Z" /><path fill-rule="evenodd" d="M13.702 1.217a.696.696 0 0 1-.007 1.035l-1.002.921a47.2 47.2 0 0 1 2.467.076c.65.041 1.26.104 1.79.202c.52.096 1.022.237 1.42.46c.74.418 1.363.99 1.817 1.672c.438.656.63 1.398.723 2.292c.09.875.09 1.969.09 3.355v.038c0 .404-.352.732-.786.732c-.434 0-.785-.328-.785-.732c0-1.433-.001-2.456-.084-3.253c-.08-.785-.236-1.274-.493-1.66a3.78 3.78 0 0 0-1.296-1.191c-.168-.096-.462-.195-.912-.278a13.727 13.727 0 0 0-1.59-.177a45.123 45.123 0 0 0-2.348-.072l.989.91a.696.696 0 0 1 .007 1.034a.828.828 0 0 1-1.111.006L10.234 4.42A.707.707 0 0 1 10 3.899c0-.196.084-.383.234-.52L12.59 1.21a.828.828 0 0 1 1.11.006Z" clip-rule="evenodd" /></g></svg>
                     <span class="ml-3">Converter</span>
                 </a>
             </li>
             <li>
-                <a href="#" class="flex items-center p-2 text-black rounded-lg hover:bg-gray-100  group">
+                <a href="/" class="flex items-center p-2 text-black rounded-lg hover:bg-gray-100  group">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2s10 4.477 10 10Zm-10 5.75a.75.75 0 0 0 .75-.75v-6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75ZM12 7a1 1 0 1 1 0 2a1 1 0 0 1 0-2Z" clip-rule="evenodd" /></svg>
                     <span class="ml-3">About</span>
                 </a>
             </li>
             <li>
-                <a href="#" class="flex items-center p-2 text-black rounded-lg hover:bg-gray-100 group">
+                <a href="https://github.com/p6laris/MorseSharp" target="_blank" class="flex items-center p-2 text-black rounded-lg hover:bg-gray-100 group">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5c.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34c-.46-1.16-1.11-1.47-1.11-1.47c-.91-.62.07-.6.07-.6c1 .07 1.53 1.03 1.53 1.03c.87 1.52 2.34 1.07 2.91.83c.09-.65.35-1.09.63-1.34c-2.22-.25-4.55-1.11-4.55-4.92c0-1.11.38-2 1.03-2.71c-.1-.25-.45-1.29.1-2.64c0 0 .84-.27 2.75 1.02c.79-.22 1.65-.33 2.5-.33c.85 0 1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02c.55 1.35.2 2.39.1 2.64c.65.71 1.03 1.6 1.03 2.71c0 3.82-2.34 4.66-4.57 4.91c.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2Z" /></svg>
                     <span class="ml-3">Github</span>
                 </a>
@@ -40,10 +43,19 @@
 
 @code {
 
+    #region Fields
     public bool isOpened { get; set; } = false;
+    #endregion
 
+    #region Methods
     public void ToggleSidebar()
     {
         isOpened = !isOpened;
     }
+    void NavigateToConverter()
+    {
+        Navigation.NavigateTo("/Converter", false);
+        isOpened = false;
+    }
+    #endregion
 }
