@@ -115,6 +115,7 @@
 
                     // Set white-shaded bars with a little dark shade
                     const darkShade = Math.floor(50 * frequency); // Adjusted for a little dark shade
+                    
                     canvasContext.fillStyle = `rgb(${255 - darkShade}, ${255 - darkShade}, ${255 - darkShade})`;
                     canvasContext.fillRect(x, HEIGHT - barHeight, barWidth, barHeight);
 
