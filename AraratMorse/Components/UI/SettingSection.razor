@@ -1,0 +1,86 @@
+﻿@using AraratMorse.Stores;
+@using AraratMorse.Stores.SettingStore;
+@using AraratMorse.Models;
+@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+
+@* Overlay *@
+<div @onclick="@(async() => await CloseSectionAsync())" class="@(settingState!.Value.IsSectionOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
+
+<div class="fixed flex flex-col items-center bg-white font-sans font-thin top-0 right-0 z-40 w-64 h-screen transition-transform z-50 py-4 @(settingState!.Value.IsSectionOpened ? "translate-x-0" : "translate-x-full")">
+    @* Setting Body *@
+    <h3 class="text-4xl mb-10 font-norma">Settings</h3>
+
+    <EditForm Model="@settings" OnValidSubmit="@(async() => await CloseSectionAsync())">
+
+        <FluentValidationValidator @ref=validator DisableAssemblyScanning=true />
+
+        <div class="flex flex-col items-center mb-2">
+            <p>Word Per Minute</p>
+            <input @bind-value=@settings.WordSpeed class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none" type="number"/>
+            <ValidationMessage For="() => settings.WordSpeed" class="text-rose-300 text-xs text-center font-medium" />
+        </div>
+        <div class="flex flex-col items-center mb-2">
+            <p>Char Per Minute</p>
+            <input @bind-value=@settings.CharSpeed class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none" type="number" />
+            <ValidationMessage For="@(() => settings.CharSpeed)" class="text-rose-300 text-xs text-center font-medium" />
+        </div>
+        <div class="flex flex-col items-center">
+            <p>Frequency</p>
+            <input @bind-value=@settings.Frequency class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none" type="number"  />
+            <ValidationMessage For="@(() => settings.Frequency)" class="text-rose-300 text-xs text-center font-medium" />
+
+        </div>
+        <div class="flex flex-col items-center">
+            <button @onclick=@(async() => await CloseSectionAsync()) class="bg-black text-white font-medium rounded-lg p-2 mt-10 w-1/2 text-center">Save</button>
+        </div>
+    </EditForm>
+   
+   
+</div>
+
+@code {
+
+    #region States
+
+    [Inject]
+    IState<SettingState>? settingState { get; set; }
+
+    [Inject]
+    IDispatcher? dispatcher { get; set; }
+
+    #endregion
+
+    FluentValidationValidator? validator;
+    #region Fields
+
+    Settings settings = new() { CharSpeed = 25, WordSpeed = 25, Frequency = 641 };
+
+    #endregion
+    #region Methods
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            //Init with default value
+            SettingAction action = new() { IsOpened = false, WordSpeed = 25, CharSpeed = 25, Frequency = 641 };
+            dispatcher!.Dispatch(action);
+
+        }
+    }
+    async ValueTask CloseSectionAsync()
+    {
+
+        if (await ValidateAsync())
+        {
+            //If validation result was true, then chnage the state
+            SettingAction action = new() { IsOpened = false, WordSpeed = settings.WordSpeed, CharSpeed = this.settings.CharSpeed, Frequency = settings.Frequency };
+            dispatcher!.Dispatch(action);
+        }
+    }
+
+    async ValueTask<bool> ValidateAsync() => (await validator!.ValidateAsync(option => option.IncludeAllRuleSets()));
+
+
+    #endregion
+}

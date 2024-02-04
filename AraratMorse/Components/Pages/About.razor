@@ -1,0 +1,191 @@
+﻿@page "/"
+@using AraratMorse.Stores.LanguageState
+@using AraratMorse.Stores
+@using MorseSharp
+@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+
+<div class="flex flex-col text-white gap-2">
+    <h3 class="text-4xl font-black md:mx-auto">About Morse Code</h3>
+    <p class="font-medium text-justify tracking-wide leading-7 md:w-8/12 md:mx-auto md:text-lg"> Morse code is a method of encoding text characters using sequences of dots and dashes to represent letters, numerals, and punctuation. Developed by <span class="underline underline-offset-4 ">Samuel Morse and Alfred Vail</span> in the early 1830s, Morse code became widely used for long-distance communication, particularly in telegraphy.</p>
+    <div class="flex flex-col items-center gap-2 mt-4 md:w-8/12 md:mx-auto">
+        <img src="./img/telegraph.jpg" loading="lazy" alt="Telegraph Mechine" class="w-full h-full rounded-xl"/>
+        <p class="text-sm font-thin">Telegraph Mechine</p>
+    </div>
+    <p class="mt-4 font-medium text-justify tracking-wide leading-7 md:w-8/12 md:mx-auto md:text-lg">The system relies on the basic elements of dots (short signals) and dashes (long signals) arranged in specific combinations to convey each alphanumeric symbol. Originally designed for telegraphy, Morse code played a crucial role in maritime and military communication during the 19th and 20th centuries.</p>
+    <h2 class="mt-4 text-3xl font-semibold md:mx-auto md:text-2xl md:font-black">#Light</h2>
+    <p class="font-medium text-justify tracking-wide leading-7 md:w-8/12 md:mx-auto md:text-lg">Morse code can be transmitted not only through sound (as with traditional telegraphy) but also through light signals. Visual representation of Morse code involves using flashes of light or other visual signals to convey the dots and dashes that make up the code.</p>
+    <p class="mt-2 font-medium text-justify tracking-wide leading-7 md:w-8/12 md:mx-auto md:text-lg">One common method of presenting Morse code through light is using a signaling device such as a flashlight or a signal lamp. In this application, a short flash of light represents a dot, while a longer flash signifies a dash. By timing the intervals between these flashes, Morse code messages can be transmitted visually.</p>
+    <div class="flex flex-col items-center gap-2 mt-4 md:w-8/12 md:mx-auto">
+        <img src="./img/lamp.jpg" loading="lazy" alt="Telegraph Mechine" class="w-full h-full rounded-xl"/>
+        <p class="text-sm font-thin">Signal Lamp</p>
+    </div>
+    <div class="flex flex-col gap-2 md:w-8/12 md:mx-auto">
+        <h2 class="mt-4 text-3xl font-semibold md:mx-auto md:text-2xl md:font-black">#Rules</h2>
+        <div class="flex flex-col bg-white rounded-lg text-black p-4">
+            <table class="text-center w-full">
+                <thead>
+                <tr>
+                    <th>Character</th>
+                    <th>Morse Code</th>
+                    <th>Unit Count</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr class="hover:bg-gray-100 rounded">
+                    <td>Dot</td>
+                    <td class="text-black text-lg">.</td>
+                    <td>One</td>
+                </tr>
+                <tr class="hover:bg-gray-100 rounded">
+                    <td>Dash</td>
+                    <td class="text-black text-lg">-</td>
+                    <td>Three</td>
+                </tr>
+                <tr class="hover:bg-gray-100 rounded">
+                    <td>Space chars same letter</td>
+                    <td class="text-black text-lg">.<span class="text-sm font-medium"> s </span>_</td>
+                    <td>One</td>
+                </tr>
+                <tr class="hover:bg-gray-100 rounded">
+                    <td>Space chars between letters</td>
+                    <td class="text-black text-lg">....<span class="text-sm font-medium"> s </span>..</td>
+                    <td>Three</td>
+                </tr>
+                <tr class="hover:bg-gray-100 rounded">
+                    <td>Space chars between words</td>
+                    <td class="text-black text-lg">.... ..<span class="text-sm font-medium"> s </span>.._</td>
+                    <td>Seven</td>
+                </tr>
+                </tbody>
+
+            </table>
+        </div>
+        <div class="flex flex-col gap-2">
+            <h2 class="mt-4 text-3xl font-semibold md:mx-auto md:text-2xl md:font-black">#Characters in @languageState.Value.Language </h2>
+            <div class="flex flex-col bg-white rounded-lg text-black p-4 w-full">
+                <table class="text-center">
+                    <thead>
+                    <tr>
+                        <th>Alphabet</th>
+                        <th>Morse Code</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in GetAlphabets())
+                    {
+                        <tr class="hover:bg-gray-100 rounded cursor-pointer">
+                            <td>@item.Key</td>
+                            <td class="text-black text-lg tracking-widest"> @item.Value</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex flex-col bg-white rounded-lg text-black p-4">
+                <table class="text-center">
+                    <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Morse Code</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in GetNumbers())
+                    {
+                        <tr class="hover:bg-gray-100 rounded cursor-pointer">
+                            <td>@item.Key</td>
+                            <td class="text-black text-lg tracking-widest">@item.Value</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex flex-col bg-white rounded-lg text-black p-4">
+                <table class="text-center">
+                    <thead>
+                    <tr>
+                        <th>Punctuation</th>
+                        <th>Morse Code</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in GetPunctuations())
+                    {
+                        <tr class="hover:bg-gray-100 rounded cursor-pointer">
+                            <td>@item.Key</td>
+                            <td class="text-black text-lg tracking-widest">@item.Value</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex flex-col bg-white rounded-lg text-black p-4">
+                <table class="text-center">
+                    <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Morse Code</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in GetSymbols())
+                    {
+                        <tr class="hover:bg-gray-100 rounded cursor-pointer">
+                            <td>@item.Key</td>
+                            <td class="text-black text-lg tracking-widest">@item.Value</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    #region States
+
+    [Inject] IState<LanguageState> languageState { get; set; }
+
+    [Inject] IDispatcher dispatcher { get; set; }
+
+    #endregion
+
+    #region Methods
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        //Set initial state for the dropdown
+        if (languageState.Value.Language == 0)
+        {
+            dispatcher?.Dispatch(new LanguageAction {Language = Language.Kurdish});
+        }
+    }
+
+
+    private Dictionary<char, string> GetAlphabets()
+    {
+        return MorseCharacters.GetLanguageCharacter(languageState.Value.Language).Where(pair => char.IsLetter(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
+    }
+
+    private Dictionary<char, string> GetNumbers()
+    {
+        return MorseCharacters.GetLanguageCharacter(languageState.Value.Language).Where(pair => char.IsNumber(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
+    }
+
+    private Dictionary<char, string> GetPunctuations()
+    {
+        return MorseCharacters.GetLanguageCharacter(languageState.Value.Language).Where(pair => char.IsPunctuation(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
+    }
+
+    private Dictionary<char, string> GetSymbols()
+    {
+        return MorseCharacters.GetLanguageCharacter(languageState.Value.Language).Where(pair => char.IsSymbol(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
+    }
+
+    #endregion
+
+}
