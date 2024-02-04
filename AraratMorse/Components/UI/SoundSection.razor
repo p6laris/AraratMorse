@@ -30,7 +30,7 @@
         <div class="rounded-lg relative z-0 w-full h-full">
             <canvas id="soundVisualizer"></canvas>
         </div>
-
+        <audio id="audio" class="hidden" src="@($"data:audio/wav;base64, {System.Convert.ToBase64String(soundByte.ToArray())}")"></audio>
         @* Toolbar *@
         <div class="absolute flex gap-2 left-0 right-0 mx-auto w-28 top-16 bg-white px-3 py-2 rounded-3xl z-10">
             <button @onclick=PlayAsync class=@(canPlayOrResume ? "text-green-600" : "text-green-300")>
@@ -110,7 +110,7 @@
     {
         if (soundState!.Value.IsSectionOpened)
         {
-            await runtime!.InvokeVoidAsync("araratMorse.initAudio", soundByte.ToArray());
+            await runtime!.InvokeVoidAsync("araratMorse.initAudio");
         }
     }
 

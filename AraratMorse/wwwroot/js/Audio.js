@@ -3,87 +3,73 @@ var AraratMorse;
 (function (AraratMorse) {
     class AudioManager {
         constructor() {
-            this.analyzer = null;
-            this.audioContext = null;
             this.canvas = { canvas: null, canvasContext: null };
-            this.source = null;
             this.playbackInfo = { startedAt: 0, pausedAt: 0 };
         }
-        initAudio(bytes) {
+        initAudio() {
             try {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext);
                 this.canvas.canvas = document.getElementById('soundVisualizer');
+                this.audioElement = document.getElementById("audio");
                 if (this.canvas) {
                     this.canvas.canvasContext = this.canvas.canvas.getContext(('2d'));
-                    this.analyzer = this.audioContext.createAnalyser();
-                    this.analyzer.fftSize = 256;
-                    this.byteArray = bytes;
-                    this.source = this.audioContext.createBufferSource();
-                    this.source.connect(this.analyzer);
-                    this.analyzer.connect(this.audioContext.destination);
+                    // Set initial canvas size
+                    this.resizeCanvas();
+                    // Handle window resize events
+                    window.addEventListener('resize', () => this.resizeCanvas());
                 }
             }
             catch (_a) {
                 console.error("Could not init the audio");
             }
         }
+        resizeCanvas() {
+            var _a;
+            const parent = (_a = this.canvas.canvas) === null || _a === void 0 ? void 0 : _a.parentElement;
+            if (parent) {
+                this.canvas.canvas.width = parent.clientWidth;
+                this.canvas.canvas.height = parent.clientHeight;
+            }
+        }
         pause() {
-            const elapsed = this.audioContext.currentTime - this.playbackInfo.startedAt;
-            this.source.stop();
-            this.playbackInfo.pausedAt = elapsed;
+            this.audioElement.pause();
         }
         play() {
-            var _a;
-            try {
-                const offset = this.playbackInfo.pausedAt;
-                const newBuffer = new Uint8Array(this.byteArray);
-                (_a = this.audioContext) === null || _a === void 0 ? void 0 : _a.decodeAudioData(newBuffer.buffer.slice(0), (buffer) => {
-                    const newSource = this.audioContext.createBufferSource();
-                    newSource.buffer = buffer;
-                    newSource.onended = () => {
-                        // Handle the end of playback if needed
-                    };
-                    this.source = newSource;
-                    this.source.connect(this.analyzer);
-                    this.analyzer.connect(this.audioContext.destination);
-                    // Adjust the start time based on the offset
-                    this.source.start(0, offset);
-                    this.playbackInfo.startedAt = this.audioContext.currentTime - offset;
-                    this.playbackInfo.pausedAt = 0;
-                    this.visualize();
-                }).catch((error) => {
-                    console.error('Error during audio decoding:', error);
-                });
-            }
-            catch (error) {
-                console.error('Error during audio decoding:', error);
-            }
+            this.audioElement.play();
+            this.visualize();
         }
         stop() {
-            if (this.source) {
-                this.source.disconnect();
-                this.source.stop();
-                this.source = null;
-            }
-            this.playbackInfo.startedAt = 0;
-            this.playbackInfo.pausedAt = 0;
+            this.audioElement.pause();
+            this.audioElement.currentTime = 0;
         }
         visualize() {
-            var _a;
-            const bufferLength = ((_a = this.analyzer) === null || _a === void 0 ? void 0 : _a.frequencyBinCount) || 0;
+            const audioContext = new AudioContext();
+            const analyser = audioContext.createAnalyser();
+            const source = audioContext.createMediaElementSource(this.audioElement);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+            analyser.fftSize = 256; // You can adjust this value based on your needs
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            const canvas = this.canvas.canvas;
+            const canvasContext = this.canvas.canvasContext;
+            const WIDTH = canvas.width;
+            const HEIGHT = canvas.height;
+            canvasContext.clearRect(0, 0, WIDTH, HEIGHT);
             const draw = () => {
-                var _a, _b, _c, _d, _e, _f;
-                (_a = this.analyzer) === null || _a === void 0 ? void 0 : _a.getByteFrequencyData(this.byteArray);
-                const barWidth = (((_b = this.canvas.canvas) === null || _b === void 0 ? void 0 : _b.width) || 0) / bufferLength * 1.5;
-                let barHeight;
+                analyser.getByteFrequencyData(dataArray);
+                canvasContext.fillStyle = 'black';
+                canvasContext.fillRect(0, 0, WIDTH, HEIGHT);
+                const barWidth = (WIDTH / bufferLength) * 2.5;
                 let x = 0;
-                (_c = this.canvas.canvasContext) === null || _c === void 0 ? void 0 : _c.clearRect(0, 0, ((_d = this.canvas.canvas) === null || _d === void 0 ? void 0 : _d.width) || 0, ((_e = this.canvas.canvas) === null || _e === void 0 ? void 0 : _e.height) || 0);
                 for (let i = 0; i < bufferLength; i++) {
-                    barHeight = this.byteArray[i];
-                    const grayscaleValue = barHeight / 2;
-                    this.canvas.canvasContext.fillStyle = `rgba(255, 255, 255, ${grayscaleValue / 255})`;
-                    this.canvas.canvasContext.fillRect(x, ((_f = this.canvas.canvas) === null || _f === void 0 ? void 0 : _f.height) - barHeight / 2, barWidth, barHeight / 2);
-                    x += barWidth + 2;
+                    const frequency = i / bufferLength; // Map frequency to [0, 1]
+                    const grayscaleValue = Math.floor(200 + 55 * frequency); // Adjusted for lighter shade
+                    const barHeight = 10 + dataArray[i]; // Adjusted scaling for barHeight
+                    // Set white-shaded bars with a little dark shade
+                    const darkShade = Math.floor(50 * frequency); // Adjusted for a little dark shade
+                    canvasContext.fillStyle = `rgb(${255 - darkShade}, ${255 - darkShade}, ${255 - darkShade})`;
+                    canvasContext.fillRect(x, HEIGHT - barHeight, barWidth, barHeight);
+                    x += barWidth + 1;
                 }
                 requestAnimationFrame(draw);
             };
