@@ -1,23 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-  </PropertyGroup>
-  <ItemGroup>
-    <Content Remove="C:\Users\Yunis Surchy\.nuget\packages\sirilazor\1.0.4\contentFiles\any\net8.0\Component\Interfaces\ISiriLazor.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Blazored.FluentValidation" Version="2.1.0" />
-    <PackageReference Include="ClipLazor" Version="2.1.0" />
-    <PackageReference Include="Fluxor.Blazor.Web" Version="5.9.1" />
-    <PackageReference Include="Fluxor.Blazor.Web.ReduxDevTools" Version="5.9.1" />
-    <PackageReference Include="Howler.Blazor" Version="0.9.8" />
-    <PackageReference Include="MorseSharp" Version="4.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.0" />
-  </ItemGroup>
-  <ItemGroup>
-    <TypeScriptCompile Include="wwwroot\js\Audio.ts" />
-  </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RunAOTCompilation>true</RunAOTCompilation>
+        <WasmStripILAfterAOT>true</WasmStripILAfterAOT>
+    </PropertyGroup>
+    <ItemGroup>
+        <Content Remove="C:\Users\Yunis Surchy\.nuget\packages\sirilazor\1.0.4\contentFiles\any\net8.0\Component\Interfaces\ISiriLazor.cs"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Blazored.FluentValidation" Version="2.1.0"/>
+        <PackageReference Include="ClipLazor" Version="2.1.1"/>
+        <PackageReference Include="Fluxor.Blazor.Web" Version="5.9.1"/>
+        <PackageReference Include="Fluxor.Blazor.Web.ReduxDevTools" Version="5.9.1"/>
+        <PackageReference Include="MorseSharp" Version="4.0.1"/>
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.0"/>
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.0"/>
+    </ItemGroup>
+    <ItemGroup>
+        <TypeScriptCompile Include="wwwroot\js\Audio.ts"/>
+    </ItemGroup>
+    <ItemGroup>
+        <None Include="wwwroot\css\app.css"/>
+        <None Include="wwwroot\css\app.css"/>
+    </ItemGroup>
 </Project>

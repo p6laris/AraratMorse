@@ -168,8 +168,11 @@
     //Download the audio, with the {text}.wav
     async Task Download()
     {
-        await runtime!.InvokeVoidAsync("audio.saveAudio",
-            conversionState!.Value.IsEncoding ? TranslationState!.Value.Input : TranslationState!.Value.Output, soundByte.ToArray());
+        var textName = conversionState!.Value.IsEncoding ? TranslationState!.Value.Input : TranslationState!.Value.Output;
+        textName = textName.Split()[0];
+
+        await runtime!.InvokeVoidAsync("araratMorse.download",
+            textName);
     }
 
 

@@ -1,10 +1,34 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var AraratMorse;
 (function (AraratMorse) {
     class AudioManager {
         constructor() {
             this.canvas = { canvas: null, canvasContext: null };
             this.playbackInfo = { startedAt: 0, pausedAt: 0 };
+        }
+        download(name) {
+            return __awaiter(this, void 0, void 0, function* () {
+                const res = yield fetch(this.audioElement.src);
+                const buffer = yield res.arrayBuffer();
+                const blob = new Blob([buffer], { type: "audio/wav" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
         }
         initAudio() {
             try {
@@ -63,10 +87,9 @@ var AraratMorse;
                 let x = 0;
                 for (let i = 0; i < bufferLength; i++) {
                     const frequency = i / bufferLength; // Map frequency to [0, 1]
-                    const grayscaleValue = Math.floor(200 + 55 * frequency); // Adjusted for lighter shade
-                    const barHeight = 10 + dataArray[i]; // Adjusted scaling for barHeight
+                    const barHeight = dataArray[i] * 2; // Adjusted scaling for barHeight
                     // Set white-shaded bars with a little dark shade
-                    const darkShade = Math.floor(50 * frequency); // Adjusted for a little dark shade
+                    const darkShade = Math.floor(5 * frequency); // Adjusted for a little dark shade
                     canvasContext.fillStyle = `rgb(${255 - darkShade}, ${255 - darkShade}, ${255 - darkShade})`;
                     canvasContext.fillRect(x, HEIGHT - barHeight, barWidth, barHeight);
                     x += barWidth + 1;

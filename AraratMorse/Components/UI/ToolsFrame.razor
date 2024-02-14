@@ -1,65 +1,64 @@
-﻿@using AraratMorse.Stores;
-@using AraratMorse.Stores.LightStore;
-@using AraratMorse.Stores.SoundStore;
-@using AraratMorse.Stores.ConversionState;
-@using AraratMorse.Stores.TranslationState;
-
+﻿@using AraratMorse.Stores.LightStore
+@using AraratMorse.Stores.SoundStore
+@using AraratMorse.Stores.TranslationState
+@using AraratMorse.Stores.ConversionState
+@using AraratMorse.Stores
 @inherits Fluxor.Blazor.Web.Components.FluxorComponent
 
 @* Light and Sound Button *@
 <div class="flex justify-between text-white items-center w-full lg:w-1/2 lg:mx-auto rounded-lg p-2 mt-10">
     <button @onclick="ToggleSoundBar" class="p-2 rounded-full border border-white">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16"><path d="M8.694 2.04a.5.5 0 0 1 .298.375L9 2.5v11a.5.5 0 0 1-.785.411l-.066-.054l-2.926-2.875H3.5a1.5 1.5 0 0 1-1.494-1.356L2 9.482v-2.99A1.5 1.5 0 0 1 3.355 5l.145-.007h1.724l2.927-2.851a.5.5 0 0 1 .543-.103zm3.043 1.02l.087.058l.098.085c.063.056.15.138.252.245c.206.213.476.527.746.938a6.542 6.542 0 0 1 1.083 3.618a6.522 6.522 0 0 1-1.083 3.614c-.27.41-.541.724-.746.936l-.142.141l-.187.17l-.033.026a.5.5 0 0 1-.688-.72l.13-.117a5.49 5.49 0 0 0 .83-.985c.46-.7.919-1.73.919-3.065a5.542 5.542 0 0 0-.919-3.069a5.588 5.588 0 0 0-.54-.698l-.17-.176l-.184-.17a.5.5 0 0 1 .547-.832zm-.999 2l.1.069l.133.126l.054.056c.114.123.26.302.405.54c.292.48.574 1.193.574 2.148c0 .954-.282 1.668-.573 2.148a3.388 3.388 0 0 1-.405.541l-.102.105l-.07.065l-.04.033l-.063.03c-.133.052-.442.139-.64-.108a.5.5 0 0 1 .012-.638l.134-.129l.034-.036c.075-.08.179-.208.284-.382c.21-.345.429-.882.429-1.63c0-.747-.219-1.283-.428-1.627a2.467 2.467 0 0 0-.223-.311l-.095-.105l-.069-.065a.5.5 0 0 1 .55-.83z" fill="currentColor" fill-rule="nonzero" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16">
+            <path d="M8.694 2.04a.5.5 0 0 1 .298.375L9 2.5v11a.5.5 0 0 1-.785.411l-.066-.054l-2.926-2.875H3.5a1.5 1.5 0 0 1-1.494-1.356L2 9.482v-2.99A1.5 1.5 0 0 1 3.355 5l.145-.007h1.724l2.927-2.851a.5.5 0 0 1 .543-.103zm3.043 1.02l.087.058l.098.085c.063.056.15.138.252.245c.206.213.476.527.746.938a6.542 6.542 0 0 1 1.083 3.618a6.522 6.522 0 0 1-1.083 3.614c-.27.41-.541.724-.746.936l-.142.141l-.187.17l-.033.026a.5.5 0 0 1-.688-.72l.13-.117a5.49 5.49 0 0 0 .83-.985c.46-.7.919-1.73.919-3.065a5.542 5.542 0 0 0-.919-3.069a5.588 5.588 0 0 0-.54-.698l-.17-.176l-.184-.17a.5.5 0 0 1 .547-.832zm-.999 2l.1.069l.133.126l.054.056c.114.123.26.302.405.54c.292.48.574 1.193.574 2.148c0 .954-.282 1.668-.573 2.148a3.388 3.388 0 0 1-.405.541l-.102.105l-.07.065l-.04.033l-.063.03c-.133.052-.442.139-.64-.108a.5.5 0 0 1 .012-.638l.134-.129l.034-.036c.075-.08.179-.208.284-.382c.21-.345.429-.882.429-1.63c0-.747-.219-1.283-.428-1.627a2.467 2.467 0 0 0-.223-.311l-.095-.105l-.069-.065a.5.5 0 0 1 .55-.83z" fill="currentColor" fill-rule="nonzero"/>
+        </svg>
     </button>
     <button @onclick="ToggleLightBar" class="p-2 rounded-full border border-white">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 20 20"><path fill="currentColor" d="M9.248 2.066a.5.5 0 0 0-.496 0L5.571 3.884A1.133 1.133 0 0 0 6 5.992v2.194a2 2 0 0 0-1.145 1.593l-.79 7.11A1 1 0 0 0 5.059 18h7.882a1 1 0 0 0 .994-1.11l-.79-7.11A2 2 0 0 0 12 8.185V5.992a1.133 1.133 0 0 0 .43-2.108L9.247 2.066ZM11 8H7V6h4v2Zm-5.483 4.88l6.766-1.805l.212 1.909l-7.203 1.92l.225-2.024ZM16.5 7h-2a.5.5 0 1 1 0-1h2a.5.5 0 0 1 0 1Zm-.646-3.146a.5.5 0 1 0-.707-.708l-1 1a.5.5 0 0 0 .707.708l1-1Zm0 6a.5.5 0 0 0 0-.708l-1-1a.5.5 0 1 0-.707.708l1 1a.5.5 0 0 0 .707 0Z" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 20 20">
+            <path fill="currentColor" d="M9.248 2.066a.5.5 0 0 0-.496 0L5.571 3.884A1.133 1.133 0 0 0 6 5.992v2.194a2 2 0 0 0-1.145 1.593l-.79 7.11A1 1 0 0 0 5.059 18h7.882a1 1 0 0 0 .994-1.11l-.79-7.11A2 2 0 0 0 12 8.185V5.992a1.133 1.133 0 0 0 .43-2.108L9.247 2.066ZM11 8H7V6h4v2Zm-5.483 4.88l6.766-1.805l.212 1.909l-7.203 1.92l.225-2.024ZM16.5 7h-2a.5.5 0 1 1 0-1h2a.5.5 0 0 1 0 1Zm-.646-3.146a.5.5 0 1 0-.707-.708l-1 1a.5.5 0 0 0 .707.708l1-1Zm0 6a.5.5 0 0 0 0-.708l-1-1a.5.5 0 1 0-.707.708l1 1a.5.5 0 0 0 .707 0Z"/>
+        </svg>
     </button>
 </div>
 
 @* Light and Sound Components *@
-<LightSection IsOpened=lightState.Value.IsLightSectionOpened />
+<LightSection IsOpened="lightState.Value.IsLightSectionOpened"/>
 
-<SoundSection IsOpened=soundState.Value.IsSectionOpened/>
+<SoundSection IsOpened="soundState.Value.IsSectionOpened"/>
 
 
 @code {
 
     #region States
 
-    [Inject]
-    IState<LightState>? lightState { get; set; }
+    [Inject] IState<LightState>? lightState { get; set; }
 
-    [Inject]
-    IState<SoundState>? soundState { get; set; }
+    [Inject] IState<SoundState>? soundState { get; set; }
 
-    [Inject]
-    IState<TranslationState>? translationState { get; set; }
+    [Inject] IState<TranslationState>? translationState { get; set; }
 
-    [Inject]
-    IState<ConversionState>? conversionState { get; set; }
+    [Inject] IState<ConversionState>? conversionState { get; set; }
 
-    [Inject]
-    IDispatcher? dispatcher { get; set; }
+    [Inject] IDispatcher? dispatcher { get; set; }
 
     #endregion
 
     // TODO:Disable and enable the buttons based on the validation
 
     #region Methods
+
     void ToggleLightBar()
     {
         if (ShouldSectionOpen())
         {
-            LightSectionAction action = new() { IsOpened = !lightState!.Value.IsLightSectionOpened };
+            LightSectionAction action = new() {IsOpened = !lightState!.Value.IsLightSectionOpened};
             dispatcher!.Dispatch(action);
         }
-
     }
+
     void ToggleSoundBar()
     {
         if (ShouldSectionOpen())
         {
-            SoundSectionAction action = new() { IsSectionOpened = !soundState!.Value.IsSectionOpened };
+            SoundSectionAction action = new() {IsSectionOpened = !soundState!.Value.IsSectionOpened};
             dispatcher!.Dispatch(action);
         }
     }
@@ -79,5 +78,7 @@
 
         return false;
     }
+
     #endregion
+
 }

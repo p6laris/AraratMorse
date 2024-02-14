@@ -38,6 +38,25 @@
             this.playbackInfo = {startedAt: 0, pausedAt: 0};
         }
 
+        async download(name: string): Promise<void> {
+            const res = await fetch(this.audioElement.src);
+            const buffer = await res.arrayBuffer();
+
+            const blob = new Blob([buffer], {type: "audio/wav"});
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = name;
+
+            document.body.appendChild(a);
+
+            a.click();
+
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         initAudio(): void {
             try {
 
@@ -109,13 +128,12 @@
 
                 for (let i = 0; i < bufferLength; i++) {
                     const frequency = i / bufferLength; // Map frequency to [0, 1]
-                    const grayscaleValue = Math.floor(200 + 55 * frequency); // Adjusted for lighter shade
 
-                    const barHeight = 10 + dataArray[i]; // Adjusted scaling for barHeight
+                    const barHeight = dataArray[i] * 2; // Adjusted scaling for barHeight
 
                     // Set white-shaded bars with a little dark shade
-                    const darkShade = Math.floor(50 * frequency); // Adjusted for a little dark shade
-                    
+                    const darkShade = Math.floor(5 * frequency); // Adjusted for a little dark shade
+
                     canvasContext.fillStyle = `rgb(${255 - darkShade}, ${255 - darkShade}, ${255 - darkShade})`;
                     canvasContext.fillRect(x, HEIGHT - barHeight, barWidth, barHeight);
 
