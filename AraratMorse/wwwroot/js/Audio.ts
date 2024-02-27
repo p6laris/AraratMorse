@@ -10,7 +10,6 @@
         startedAt: number;
         pausedAt: number;
     }
-
     interface IAudioConfig {
         canvas: ICanvas | null;
         playbackInfo: IPlayBackInfo;
