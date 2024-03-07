@@ -1,0 +1,12 @@
+﻿{
+ "compilerOptions": {
+   "target": "es2016",
+   "strictPropertyInitialization": false,
+   "module": "ES6",
+   "esModuleInterop": true,
+   "forceConsistentCasingInFileNames": true,
+   "strict": true,
+   "skipLibCheck": true,
+   "noImplicitAny": false
+ }
+}
