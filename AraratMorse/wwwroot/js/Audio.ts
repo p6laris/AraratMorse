@@ -1,5 +1,4 @@
 ﻿namespace AraratMorse {
-
     interface ICanvas {
         canvas: HTMLCanvasElement | null;
         canvasContext: CanvasRenderingContext2D | null;
@@ -10,6 +9,7 @@
         startedAt: number;
         pausedAt: number;
     }
+
     interface IAudioConfig {
         canvas: ICanvas | null;
         playbackInfo: IPlayBackInfo;
@@ -27,14 +27,90 @@
 
     }
 
+    enum AudioAction {
+        Initial,
+        Playing,
+        Pause,
+        Stop
+    }
+
     class AudioManager implements IAudioConfig {
         canvas: ICanvas;
         audioElement: HTMLAudioElement;
         playbackInfo: IPlayBackInfo;
+        playBtn: HTMLButtonElement;
+        pauseBtn: HTMLButtonElement;
+        stopBtn: HTMLButtonElement;
 
         constructor() {
             this.canvas = {canvas: null, canvasContext: null};
             this.playbackInfo = {startedAt: 0, pausedAt: 0};
+        }
+
+        setBtnsStyles(action: AudioAction): void {
+            switch (action) {
+                case AudioAction.Initial:
+                    this.playBtn.classList.remove("text-green-300");
+                    this.playBtn.classList.add("text-green-600");
+
+                    this.pauseBtn.classList.remove("text-gray-600");
+                    this.pauseBtn.classList.add("text-gray-300");
+
+                    this.stopBtn.classList.remove("text-rose-600");
+                    this.stopBtn.classList.add("text-rose-300");
+
+                    this.playBtn.disabled = false;
+                    this.pauseBtn.disabled = true;
+                    this.stopBtn.disabled = true;
+
+                    break;
+                case AudioAction.Playing:
+                    this.playBtn.classList.remove("text-green-600");
+                    this.playBtn.classList.add("text-green-300");
+
+                    this.pauseBtn.classList.remove("text-gray-300");
+                    this.pauseBtn.classList.add("text-gray-600");
+
+                    this.stopBtn.classList.remove("text-rose-300");
+                    this.stopBtn.classList.add("text-rose-600");
+
+                    this.playBtn.disabled = true;
+                    this.pauseBtn.disabled = false;
+                    this.stopBtn.disabled = false;
+
+                    break;
+                case AudioAction.Pause:
+                    this.playBtn.classList.remove("text-green-300");
+                    this.playBtn.classList.add("text-green-600");
+
+                    this.pauseBtn.classList.remove("text-gray-600");
+                    this.pauseBtn.classList.add("text-gray-300");
+
+                    this.playBtn.disabled = false;
+                    this.pauseBtn.disabled = true;
+                    this.stopBtn.disabled = false;
+
+                    break;
+
+                case AudioAction.Stop:
+                    this.playBtn.classList.remove("text-green-300");
+                    this.playBtn.classList.add("text-green-600");
+
+                    this.pauseBtn.classList.remove("text-gray-600");
+                    this.pauseBtn.classList.add("text-gray-300");
+
+                    this.stopBtn.classList.remove("text-rose-600");
+                    this.stopBtn.classList.add("text-rose-300");
+
+                    this.playBtn.disabled = false;
+                    this.pauseBtn.disabled = true;
+                    this.stopBtn.disabled = true;
+
+                    break;
+
+                default:
+                    console.log("Unsupported action.");
+            }
         }
 
         async download(name: string): Promise<void> {
@@ -70,6 +146,22 @@
 
                     // Handle window resize events
                     window.addEventListener('resize', () => this.resizeCanvas());
+
+                    this.playBtn = document.getElementById("playBtn") as HTMLButtonElement;
+                    this.pauseBtn = document.getElementById("pauseBtn") as HTMLButtonElement;
+                    this.stopBtn = document.getElementById("stopBtn") as HTMLButtonElement;
+
+                    this.audioElement.onended = (e) => {
+                        this.setBtnsStyles(AudioAction.Initial);
+                    }
+
+                    this.audioElement.onplaying = (e) => {
+                        this.setBtnsStyles(AudioAction.Playing);
+                    }
+
+                    this.audioElement.onpause = (e) => {
+                        this.setBtnsStyles(AudioAction.Pause);
+                    }
                 }
             } catch {
                 console.error("Could not init the audio");
@@ -95,6 +187,7 @@
 
         stop(): void {
             this.audioElement.pause();
+            this.setBtnsStyles(AudioAction.Stop);
             this.audioElement.currentTime = 0;
         }
 
@@ -155,3 +248,7 @@
 }
 
 AraratMorse.Load();
+
+
+
+

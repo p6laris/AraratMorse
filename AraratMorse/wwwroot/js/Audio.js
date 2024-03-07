@@ -10,10 +10,51 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 var AraratMorse;
 (function (AraratMorse) {
+    let AudioAction;
+    (function (AudioAction) {
+        AudioAction[AudioAction["Initial"] = 0] = "Initial";
+        AudioAction[AudioAction["Playing"] = 1] = "Playing";
+        AudioAction[AudioAction["Pause"] = 2] = "Pause";
+        AudioAction[AudioAction["Stop"] = 3] = "Stop";
+    })(AudioAction || (AudioAction = {}));
     class AudioManager {
         constructor() {
             this.canvas = { canvas: null, canvasContext: null };
             this.playbackInfo = { startedAt: 0, pausedAt: 0 };
+        }
+        setBtnsStyles(action) {
+            switch (action) {
+                case AudioAction.Initial:
+                    this.playBtn.classList.remove("text-green-300");
+                    this.playBtn.classList.add("text-green-600");
+                    this.pauseBtn.classList.remove("text-gray-600");
+                    this.pauseBtn.classList.add("text-gray-300");
+                    this.stopBtn.classList.remove("text-rose-600");
+                    this.stopBtn.classList.add("text-rose-300");
+                    break;
+                case AudioAction.Playing:
+                    this.playBtn.classList.remove("text-green-600");
+                    this.playBtn.classList.add("text-green-300");
+                    this.pauseBtn.classList.remove("text-gray-300");
+                    this.pauseBtn.classList.add("text-gray-600");
+                    this.stopBtn.classList.remove("text-rose-300");
+                    this.stopBtn.classList.add("text-rose-600");
+                    break;
+                case AudioAction.Pause:
+                    this.playBtn.classList.remove("text-green-300");
+                    this.playBtn.classList.add("text-green-600");
+                    this.pauseBtn.classList.remove("text-gray-600");
+                    this.pauseBtn.classList.add("text-gray-300");
+                    break;
+                case AudioAction.Stop:
+                    this.playBtn.classList.remove("text-green-300");
+                    this.playBtn.classList.add("text-green-600");
+                    this.pauseBtn.classList.remove("text-gray-600");
+                    this.pauseBtn.classList.add("text-gray-300");
+                    this.stopBtn.classList.remove("text-rose-600");
+                    this.stopBtn.classList.add("text-rose-300");
+                    break;
+            }
         }
         download(name) {
             return __awaiter(this, void 0, void 0, function* () {
@@ -40,6 +81,18 @@ var AraratMorse;
                     this.resizeCanvas();
                     // Handle window resize events
                     window.addEventListener('resize', () => this.resizeCanvas());
+                    this.playBtn = document.getElementById("playBtn");
+                    this.pauseBtn = document.getElementById("pauseBtn");
+                    this.stopBtn = document.getElementById("stopBtn");
+                    this.audioElement.onended = (e) => {
+                        this.setBtnsStyles(AudioAction.Initial);
+                    };
+                    this.audioElement.onplaying = (e) => {
+                        this.setBtnsStyles(AudioAction.Playing);
+                    };
+                    this.audioElement.onpause = (e) => {
+                        this.setBtnsStyles(AudioAction.Pause);
+                    };
                 }
             }
             catch (_a) {
@@ -63,6 +116,7 @@ var AraratMorse;
         }
         stop() {
             this.audioElement.pause();
+            this.setBtnsStyles(AudioAction.Stop);
             this.audioElement.currentTime = 0;
         }
         visualize() {
