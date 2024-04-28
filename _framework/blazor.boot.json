@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "AraratMorse",
   "resources": {
-    "hash": "sha256-+NUp0zQQ7W4bf4HmX4YNrQ2jhty4hXClROyJdKSLrtc=",
+    "hash": "sha256-r4gcxZR69kdC20iGUzy2sy6WfbdEII+vYJZlULZMPaw=",
     "jsModuleNative": {
       "dotnet.native.8.0.4.tbm8bk0um4.js": "sha256-ylzq8sVjsI5iA9IXgp/XuJR9RxYzAvDngUAvGPpD3I8="
     },
@@ -9,7 +9,7 @@
       "dotnet.runtime.8.0.4.17vw47cxz6.js": "sha256-JeVsECOqOie/Pe89n9PJNJaMmb5vJsAAxfXY8INN64A="
     },
     "wasmNative": {
-      "dotnet.native.wasm": "sha256-ltZfe4V7MSoto+Sd3W/Mhw7MyiJdOAxj6QnLE0bX0/E="
+      "dotnet.native.wasm": "sha256-XJN0py3qittOhdpmT86W4+CheAcUU+l9CPBM//FQods="
     },
     "icu": {
       "icudt_CJK.dat": "sha256-SZLtQnRc0JkwqHab0VUVP7T3uBPSeYzxzDnpxPpUnHk=",
@@ -17,7 +17,7 @@
       "icudt_no_CJK.dat": "sha256-L7sV7NEYP37/Qr2FPCePo5cJqRgTXRwGHuwF5Q+0Nfs="
     },
     "assembly": {
-      "AraratMorse.wasm": "sha256-0UZ+IoWZHPICzg0aBG9yo2F0jhEtUXXUl4PDyx4Tc8s=",
+      "AraratMorse.wasm": "sha256-3dIAcdfrWq7Gs1ahw29rTKJJCHFR1/vDgCUN5hKQoYg=",
       "Blazored.FluentValidation.wasm": "sha256-OtU6u7NaCwy6gwYUqOysIpk7uVBoBQ2pbCXqCO2VvQ0=",
       "ClipLazor.wasm": "sha256-U6kvKq7PnjQzQ3/Zda8QO1y9fGeg82X+0IWZsjOq1k4=",
       "CommunityToolkit.HighPerformance.wasm": "sha256-c9LLfCvcyAeTd9CyLemeuM7aLL2YQ/jELcVHF7/uCkA=",
