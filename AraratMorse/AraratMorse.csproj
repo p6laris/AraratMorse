@@ -4,7 +4,6 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <RunAOTCompilation>true</RunAOTCompilation>
-        <WasmStripILAfterAOT>true</WasmStripILAfterAOT
     </PropertyGroup>
     <ItemGroup>
         <Content Remove="C:\Users\Yunis Surchy\.nuget\packages\sirilazor\1.0.4\contentFiles\any\net8.0\Component\Interfaces\ISiriLazor.cs"/>
