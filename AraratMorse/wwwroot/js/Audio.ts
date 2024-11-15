@@ -16,13 +16,9 @@
         audioElement: HTMLAudioElement;
 
         initAudio(): void;
-
         play(): void;
-
         pause(): void;
-
         visualize(): void;
-
         stop(): void;
 
     }
@@ -41,6 +37,10 @@
         playBtn: HTMLButtonElement;
         pauseBtn: HTMLButtonElement;
         stopBtn: HTMLButtonElement;
+
+        audioContext: AudioContext | null = null;
+        sourceNode: MediaElementAudioSourceNode | null = null;
+        analyser: AnalyserNode | null = null;
 
         constructor() {
             this.canvas = {canvas: null, canvasContext: null};
@@ -134,37 +134,35 @@
 
         initAudio(): void {
             try {
-
                 this.canvas.canvas = document.getElementById('soundVisualizer') as HTMLCanvasElement;
                 this.audioElement = document.getElementById("audio") as HTMLAudioElement;
 
                 if (this.canvas) {
-                    this.canvas.canvasContext = this.canvas.canvas!.getContext(('2d'));
-
-                    // Set initial canvas size
+                    this.canvas.canvasContext = this.canvas.canvas.getContext('2d');
                     this.resizeCanvas();
-
-                    // Handle window resize events
                     window.addEventListener('resize', () => this.resizeCanvas());
 
                     this.playBtn = document.getElementById("playBtn") as HTMLButtonElement;
                     this.pauseBtn = document.getElementById("pauseBtn") as HTMLButtonElement;
                     this.stopBtn = document.getElementById("stopBtn") as HTMLButtonElement;
 
-                    this.audioElement.onended = (e) => {
-                        this.setBtnsStyles(AudioAction.Initial);
-                    }
+                    this.audioElement.onended = () => this.setBtnsStyles(AudioAction.Initial);
+                    this.audioElement.onplaying = () => this.setBtnsStyles(AudioAction.Playing);
+                    this.audioElement.onpause = () => this.setBtnsStyles(AudioAction.Pause);
 
-                    this.audioElement.onplaying = (e) => {
-                        this.setBtnsStyles(AudioAction.Playing);
-                    }
+                    if (!this.audioContext) {
+                        this.audioContext = new AudioContext();
+                        this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
+                        this.analyser = this.audioContext.createAnalyser();
 
-                    this.audioElement.onpause = (e) => {
-                        this.setBtnsStyles(AudioAction.Pause);
+                        this.sourceNode.connect(this.analyser);
+                        this.analyser.connect(this.audioContext.destination);
+
+                        this.analyser.fftSize = 256;
                     }
                 }
-            } catch {
-                console.error("Could not init the audio");
+            } catch (error) {
+                console.error("Could not init the audio", error);
             }
         }
 
@@ -192,26 +190,19 @@
         }
 
         visualize(): void {
-            const audioContext = new AudioContext();
-            const analyser = audioContext.createAnalyser();
-            const source = audioContext.createMediaElementSource(this.audioElement);
-            source.connect(analyser);
-            analyser.connect(audioContext.destination);
+            if (!this.analyser || !this.canvas.canvas || !this.canvas.canvasContext) return;
 
-            analyser.fftSize = 256; // You can adjust this value based on your needs
-            const bufferLength = analyser.frequencyBinCount;
+            const bufferLength = this.analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
-
-            const canvas = this.canvas.canvas!;
-            const canvasContext = this.canvas.canvasContext!;
+            const canvas = this.canvas.canvas;
+            const canvasContext = this.canvas.canvasContext;
             const WIDTH = canvas.width;
             const HEIGHT = canvas.height;
 
             canvasContext.clearRect(0, 0, WIDTH, HEIGHT);
 
             const draw = () => {
-                analyser.getByteFrequencyData(dataArray);
-
+                this.analyser!.getByteFrequencyData(dataArray);
                 canvasContext.fillStyle = 'black';
                 canvasContext.fillRect(0, 0, WIDTH, HEIGHT);
 
@@ -219,28 +210,19 @@
                 let x = 0;
 
                 for (let i = 0; i < bufferLength; i++) {
-                    const frequency = i / bufferLength; // Map frequency to [0, 1]
-
-                    const barHeight = dataArray[i] * 2; // Adjusted scaling for barHeight
-
-                    // Set white-shaded bars with a little dark shade
-                    const darkShade = Math.floor(5 * frequency); // Adjusted for a little dark shade
-
+                    const frequency = i / bufferLength;
+                    const barHeight = dataArray[i] * 2;
+                    const darkShade = Math.floor(5 * frequency);
                     canvasContext.fillStyle = `rgb(${255 - darkShade}, ${255 - darkShade}, ${255 - darkShade})`;
                     canvasContext.fillRect(x, HEIGHT - barHeight, barWidth, barHeight);
-
                     x += barWidth + 1;
                 }
 
                 requestAnimationFrame(draw);
             };
-
             draw();
         }
-
-
     }
-
     export function Load(): void {
         window['araratMorse'] = new AudioManager();
 
