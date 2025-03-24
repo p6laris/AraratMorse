@@ -137,7 +137,7 @@
             * When the blinking completes, change back the play button 
             * Get the full morse, and move the offest back to 0.
             */
-                                                            isPlaying = false;
+            isPlaying = false;
             GetMorse();
 
         }
@@ -151,8 +151,8 @@
             /*
             * If it was playing, then substring the morse form the offset
             * to the remaining. then cancle the task.
-            */
-    theMorse = theMorse!.Substring(this.offset);
+            */ 
+            theMorse = theMorse!.Substring(this.offset);
             this.cancellationTokenSource!.Cancel();
         }
 
@@ -179,7 +179,7 @@
         * If the Cancellation not requested, then in each iteration
          * increase the offset by one and show whitish background in the div.
          */
-    ++offset;
+        ++offset;
         isBlinking = hasToBlink;
         await InvokeAsync(StateHasChanged);
     }
