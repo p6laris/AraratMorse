@@ -1,9 +1,6 @@
-﻿@page "/"
+@page "/"
 
-@using AraratMorse.Stores.SettingStore
 @using AraratMorse.Components.UI
-@using AraratMorse.Stores
-@inherits Fluxor.Blazor.Web.Components.FluxorComponent
 
 
 <main class="flex flex-col font-sans">
@@ -32,9 +29,7 @@
 
     #region States
 
-    [Inject] IState<SettingState>? settingState { get; set; }
-
-    [Inject] IDispatcher? dispatcher { get; set; }
+    [Inject] private AppState State { get; set; } = default!;
 
     #endregion
 
@@ -42,8 +37,7 @@
 
     void OpenSetting()
     {
-        SettingAction action = new() {IsOpened = true};
-        dispatcher!.Dispatch(action);
+        State.ShowPanel(Panel.Settings);
     }
 
     #endregion

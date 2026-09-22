@@ -1,9 +1,4 @@
-﻿@using AraratMorse.Stores.LightStore
-@using AraratMorse.Stores.SoundStore
-@using AraratMorse.Stores.TranslationState
-@using AraratMorse.Stores.ConversionState
-@using AraratMorse.Stores
-@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+@implements IDisposable
 
 @* Light and Sound Button *@
 <div class="flex justify-between text-white items-center w-full lg:w-1/2 lg:mx-auto rounded-lg p-2 mt-10">
@@ -20,24 +15,16 @@
 </div>
 
 @* Light and Sound Components *@
-<LightSection IsOpened="lightState.Value.IsLightSectionOpened"/>
+<LightSection IsOpened="State.ActivePanel == Panel.Light"/>
 
-<SoundSection IsOpened="soundState.Value.IsSectionOpened"/>
+<SoundSection IsOpened="State.ActivePanel == Panel.Sound"/>
 
 
 @code {
 
     #region States
 
-    [Inject] IState<LightState>? lightState { get; set; }
-
-    [Inject] IState<SoundState>? soundState { get; set; }
-
-    [Inject] IState<TranslationState>? translationState { get; set; }
-
-    [Inject] IState<ConversionState>? conversionState { get; set; }
-
-    [Inject] IDispatcher? dispatcher { get; set; }
+    [Inject] private AppState State { get; set; } = default!;
 
     #endregion
 
@@ -45,39 +32,49 @@
 
     #region Methods
 
+    protected override void OnInitialized() => State.Changed += HandleStateChanged;
+
+    void HandleStateChanged() => StateHasChanged();
+
     void ToggleLightBar()
     {
-        if (ShouldSectionOpen())
-        {
-            LightSectionAction action = new() {IsOpened = !lightState!.Value.IsLightSectionOpened};
-            dispatcher!.Dispatch(action);
-        }
+        if (!ShouldSectionOpen())
+            return;
+
+        if (State.ActivePanel == Panel.Light)
+            State.ClosePanel();
+        else
+            State.ShowPanel(Panel.Light);
     }
 
     void ToggleSoundBar()
     {
-        if (ShouldSectionOpen())
-        {
-            SoundSectionAction action = new() {IsSectionOpened = !soundState!.Value.IsSectionOpened};
-            dispatcher!.Dispatch(action);
-        }
+        if (!ShouldSectionOpen())
+            return;
+
+        if (State.ActivePanel == Panel.Sound)
+            State.ClosePanel();
+        else
+            State.ShowPanel(Panel.Sound);
     }
 
     bool ShouldSectionOpen()
     {
-        if (conversionState!.Value.IsEncoding)
+        if (State.IsEncoding)
         {
-            if (!string.IsNullOrEmpty(translationState!.Value.Input) && string.IsNullOrEmpty(translationState.Value.Error))
+            if (!string.IsNullOrEmpty(State.Input) && string.IsNullOrEmpty(State.Error))
                 return true;
         }
         else
         {
-            if (!string.IsNullOrEmpty(translationState!.Value.Output) && string.IsNullOrEmpty(translationState.Value.Error))
+            if (!string.IsNullOrEmpty(State.Output) && string.IsNullOrEmpty(State.Error))
                 return true;
         }
 
         return false;
     }
+
+    public void Dispose() => State.Changed -= HandleStateChanged;
 
     #endregion
 

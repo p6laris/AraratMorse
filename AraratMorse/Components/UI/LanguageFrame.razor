@@ -1,13 +1,9 @@
-﻿@using AraratMorse.Stores.ConversionState
-@using AraratMorse.Stores
-@inherits Fluxor.Blazor.Web.Components.FluxorComponent
-
 <div class="flex justify-between items-center bg-white w-full lg:w-1/2 lg:mx-auto rounded-lg p-2 mb-10">
 
     <LanguageDropdown/>
 
     <button @onclick="ToggleConverter">
-        @if (ConversionState.Value.IsEncoding)
+        @if (State.IsEncoding)
         {
             <svg xmlns="http://www.w3.org/2000/svg" class="w-[20px] h-[20px] " viewBox="0 0 24 24">
                 <path fill="currentColor" d="m14 18l-1.4-1.45L16.15 13H4v-2h12.15L12.6 7.45L14 6l6 6l-6 6Z"/>
@@ -26,22 +22,16 @@
 
 @code {
 
-    [Inject] private IState<ConversionState> ConversionState { get; set; }
-
-    [Inject] private IDispatcher Dispatcher { get; set; }
+    [Inject] private AppState State { get; set; } = default!;
 
     protected override void OnInitialized()
     {
-        base.OnInitialized();
-        Dispatcher.Dispatch(new ConversionAction {IsEncoding = true});
+        State.SetDirection(true);
     }
 
     public void ToggleConverter()
     {
-        var translationActoin = new ResetTranslationAction
-            {Input = string.Empty, Output = string.Empty, Error = string.Empty};
-        Dispatcher.Dispatch(translationActoin);
-        Dispatcher.Dispatch(new ConversionAction {IsEncoding = !ConversionState.Value.IsEncoding});
+        State.SetDirection(!State.IsEncoding);
     }
 
 }

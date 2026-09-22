@@ -1,8 +1,5 @@
 ﻿@page "/about"
-@using AraratMorse.Stores.LanguageState
-@using AraratMorse.Stores
 @using MorseSharp
-@inherits Fluxor.Blazor.Web.Components.FluxorComponent
 
 <div class="flex flex-col text-white gap-2">
     <h3 class="text-4xl font-black md:mx-auto">About Morse Code</h3>
@@ -61,7 +58,7 @@
             </table>
         </div>
         <div class="flex flex-col gap-2">
-            <h2 class="mt-4 text-3xl font-semibold md:mx-auto md:text-2xl md:font-black">#Characters in @languageState.Value.Language </h2>
+            <h2 class="mt-4 text-3xl font-semibold md:mx-auto md:text-2xl md:font-black">#Characters in @State.Language </h2>
             <div class="flex flex-col bg-white rounded-lg text-black p-4 w-full">
                 <table class="text-center">
                     <thead>
@@ -146,29 +143,15 @@
 
     #region States
 
-    [Inject] IState<LanguageState> languageState { get; set; }
-
-    [Inject] IDispatcher dispatcher { get; set; }
+    [Inject] private AppState State { get; set; } = default!;
 
     #endregion
 
     #region Methods
 
-    protected override void OnInitialized()
-    {
-        base.OnInitialized();
-
-        //Set initial state for the dropdown
-        if (languageState.Value.Language == 0)
-        {
-            dispatcher?.Dispatch(new LanguageAction {Language = Language.Kurdish});
-        }
-    }
-
-
     private Dictionary<char, string> GetCharacters(Func<char, bool> predicate)
     {
-        return MorseAlphabet.ForLanguage(languageState.Value.Language).Characters
+        return MorseAlphabet.ForLanguage(State.Language).Characters
             .Where(entry => predicate(entry.Character))
             .ToDictionary(entry => entry.Character, entry => entry.Pattern);
     }

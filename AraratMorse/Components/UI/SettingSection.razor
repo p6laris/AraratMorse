@@ -1,12 +1,10 @@
-﻿@using AraratMorse.Stores;
-@using AraratMorse.Stores.SettingStore;
-@using AraratMorse.Models;
-@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+@using AraratMorse.Models
+@implements IDisposable
 
 @* Overlay *@
-<div @onclick="@(async() => await CloseSectionAsync())" class="@(settingState!.Value.IsSectionOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
+<div @onclick="@(async() => await CloseSectionAsync())" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
 
-<div class="fixed flex flex-col items-center bg-white font-sans font-thin top-0 right-0 z-40 w-64 h-screen transition-transform z-50 py-4 @(settingState!.Value.IsSectionOpened ? "translate-x-0" : "translate-x-full")">
+<div class="fixed flex flex-col items-center bg-white font-sans font-thin top-0 right-0 z-40 w-64 h-screen transition-transform z-50 py-4 @(IsOpened ? "translate-x-0" : "translate-x-full")">
     @* Setting Body *@
     <h3 class="text-4xl mb-10 font-norma">Settings</h3>
 
@@ -34,53 +32,54 @@
             <button @onclick=@(async() => await CloseSectionAsync()) class="bg-black text-white font-medium rounded-lg p-2 mt-10 w-1/2 text-center">Save</button>
         </div>
     </EditForm>
-   
-   
+
+
 </div>
 
 @code {
 
     #region States
 
-    [Inject]
-    IState<SettingState>? settingState { get; set; }
+    [Inject] private AppState State { get; set; } = default!;
 
-    [Inject]
-    IDispatcher? dispatcher { get; set; }
+    [Inject] private MorseSettings MorseSettings { get; set; } = default!;
 
     #endregion
 
     FluentValidationValidator? validator;
     #region Fields
 
-    Settings settings = new() { CharSpeed = 25, WordSpeed = 25, Frequency = 641 };
+    Settings settings = new();
+
+    bool IsOpened => State.ActivePanel == Panel.Settings;
 
     #endregion
     #region Methods
 
-    protected override void OnAfterRender(bool firstRender)
+    protected override void OnInitialized()
     {
-        if (firstRender)
-        {
-            //Init with default value
-            SettingAction action = new() { IsOpened = false, WordSpeed = 25, CharSpeed = 25, Frequency = 641 };
-            dispatcher!.Dispatch(action);
+        settings.CharSpeed = MorseSettings.CharSpeed;
+        settings.WordSpeed = MorseSettings.WordSpeed;
+        settings.Frequency = MorseSettings.Frequency;
 
-        }
+        State.Changed += HandleStateChanged;
     }
+
+    void HandleStateChanged() => StateHasChanged();
+
     async ValueTask CloseSectionAsync()
     {
-
         if (await ValidateAsync())
         {
-            //If validation result was true, then chnage the state
-            SettingAction action = new() { IsOpened = false, WordSpeed = settings.WordSpeed, CharSpeed = this.settings.CharSpeed, Frequency = settings.Frequency };
-            dispatcher!.Dispatch(action);
+            //If validation result was true, then update the settings
+            MorseSettings.Update(settings.CharSpeed, settings.WordSpeed, settings.Frequency);
+            State.ClosePanel();
         }
     }
 
     async ValueTask<bool> ValidateAsync() => (await validator!.ValidateAsync(option => option.IncludeAllRuleSets()));
 
+    public void Dispose() => State.Changed -= HandleStateChanged;
 
     #endregion
 }

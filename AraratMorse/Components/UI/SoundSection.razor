@@ -1,20 +1,12 @@
-﻿@using AraratMorse.Stores.TranslationState
-@using AraratMorse.Stores.LanguageState
-@using AraratMorse.Stores.SettingStore
-@using AraratMorse.Stores.SoundStore
-@using AraratMorse.Stores.ConversionState
-@using MorseSharp
-@using AraratMorse.Stores
-@inherits Fluxor.Blazor.Web.Components.FluxorComponent
 
 
 @* Overlay *@
-<div @onclick="CloseSection" class="@(soundState!.Value.IsSectionOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
+<div @onclick="@(async () => await CloseSectionAsync())" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
 
 <div class="fixed bottom-0 left-0 flex flex-col justify-between bg-black text-white h-full z-50 items-center w-full rounded-lg p-5 mt-10 transition-transform shadow-top @(!IsOpened ? "translate-y-full" : "translate-y-0")">
 
     @* Close Button *@
-    <button @onclick="CloseSection" class="text-white text-start self-start rounded-full p-2">
+    <button @onclick="@(async () => await CloseSectionAsync())" class="text-white text-start self-start rounded-full p-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
             <path fill="currentColor" d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10s10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17L12 13.41L8.41 17L7 15.59L10.59 12L7 8.41L8.41 7L12 10.59L15.59 7L17 8.41L13.41 12L17 15.59z"/>
         </svg>
@@ -62,17 +54,11 @@
 
     #region States
 
-    [Inject] IDispatcher? Dispatcher { get; set; }
+    [Inject] private AppState State { get; set; } = default!;
 
-    [Inject] IState<TranslationState>? TranslationState { get; set; }
+    [Inject] private MorseSettings MorseSettings { get; set; } = default!;
 
-    [Inject] IState<LanguageState>? languageState { get; set; }
-
-    [Inject] IState<ConversionState>? conversionState { get; set; }
-
-    [Inject] IState<SoundState>? soundState { get; set; }
-
-    [Inject] IState<SettingState>? settingState { get; set; }
+    [Inject] private MorseService Morse { get; set; } = default!;
 
     #endregion
 
@@ -97,18 +83,24 @@
 
     ReadOnlyMemory<byte> soundByte;
 
+    bool wasOpened;
+
     #endregion
 
     #region Methods
 
     protected override void OnParametersSet()
     {
-        Convert();
+        // Only (re)generate the audio when the panel is opening, not on every render.
+        if (IsOpened && !wasOpened)
+            Convert();
+
+        wasOpened = IsOpened;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (soundState!.Value.IsSectionOpened)
+        if (IsOpened)
         {
             await runtime!.InvokeVoidAsync("araratMorse.initAudio");
         }
@@ -118,24 +110,10 @@
     {
         try
         {
-            //If it was text -> morse, then get the output and convert it.
-            if (conversionState!.Value.IsEncoding)
-            {
-                soundByte = Morse.GetConverter()
-                    .ForLanguage(languageState!.Value.Language)
-                    .ToAudio(TranslationState!.Value.Output)
-                    .SetAudioOptions(settingState!.Value.CharSpeed, settingState!.Value.WordSpeed, settingState!.Value.frequency)
-                    .GetBytes();
-            }
-            //Else convert it using the input which is the morse.
-            else
-            {
-                soundByte = Morse.GetConverter()
-                    .ForLanguage(languageState!.Value.Language)
-                    .ToAudio(TranslationState!.Value.Input)
-                    .SetAudioOptions(settingState!.Value.CharSpeed, settingState!.Value.WordSpeed, settingState!.Value.frequency)
-                    .GetBytes();
-            }
+            //The morse text is the encoded Output when encoding, or the typed morse Input when decoding.
+            var morse = State.IsEncoding ? State.Output : State.Input;
+
+            soundByte = Morse.GetWav(morse!, State.Language, MorseSettings.CharSpeed, MorseSettings.WordSpeed, MorseSettings.Frequency);
 
             errorOccurred = false;
         }
@@ -164,19 +142,18 @@
     //Download the audio, with the {text}.wav
     async Task Download()
     {
-        var textName = conversionState!.Value.IsEncoding ? TranslationState!.Value.Input : TranslationState!.Value.Output;
-        textName = textName.Split()[0];
+        var textName = State.IsEncoding ? State.Input : State.Output;
+        var firstWord = textName?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
 
         await runtime!.InvokeVoidAsync("araratMorse.download",
-            textName);
+            string.IsNullOrEmpty(firstWord) ? "morse" : firstWord);
     }
 
 
-    async void CloseSection()
+    async Task CloseSectionAsync()
     {
         await StopAsync();
-        SoundSectionAction action = new() {IsSectionOpened = false};
-        Dispatcher!.Dispatch(action);
+        State.ClosePanel();
     }
 
     #endregion

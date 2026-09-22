@@ -1,17 +1,9 @@
-﻿@using MorseSharp;
-@using AraratMorse.Stores;
-@using AraratMorse.Stores.LightStore;
-@using AraratMorse.Stores.TranslationState;
-@using AraratMorse.Stores.ConversionState;
-@using AraratMorse.Stores.LanguageState;
-@using AraratMorse.Stores.SettingStore;
-
-@inherits Fluxor.Blazor.Web.Components.FluxorComponent
+@implements IDisposable
 
 
 
 @* Overlay *@
-<div @onclick="CloseSection" class="@(lightState!.Value.IsLightSectionOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
+<div @onclick="CloseSection" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
 
 <div class="fixed bottom-0 left-0 flex flex-col justify-between bg-black text-white items-center w-full h-full rounded-t-lg p-5 mt-10 z-50 transition-transform shadow-top @(!IsOpened ? "translate-y-full" : "translate-y-0")">
     <button @onclick="CloseSection" class="text-white text-start self-start rounded-full p-2">
@@ -45,23 +37,12 @@
 @code {
 
     #region States
-    [Inject]
-    IState<LightState>? lightState { get; set; }
 
-    [Inject]
-    IState<TranslationState>? translationState { get; set; }
+    [Inject] private AppState State { get; set; } = default!;
 
-    [Inject]
-    IState<ConversionState>? conversionState { get; set; }
+    [Inject] private MorseSettings MorseSettings { get; set; } = default!;
 
-    [Inject]
-    IState<LanguageState>? languageState { get; set; }
-
-    [Inject]
-    IState<SettingState>? settingState { get; set; }
-
-    [Inject]
-    IDispatcher? dispatcher { get; set; }
+    [Inject] private MorseService Morse { get; set; } = default!;
 
     #endregion
 
@@ -88,41 +69,31 @@
     #endregion
 
     #region Methods
-    protected override void OnParametersSet() =>
-        GetMorse();
+
+    protected override void OnParametersSet() => GetMorse();
 
     /// <summary>
     /// Gets the morse
     /// </summary>
     void GetMorse()
     {
-        if (conversionState!.Value.IsEncoding)
-            theMorse = translationState!.Value.Output;
-        else
-            theMorse = translationState!.Value.Input;
-
+        theMorse = State.IsEncoding ? State.Output : State.Input;
         offset = 0;
-
     }
+
     async ValueTask Play()
     {
         try
         {
             //init CancellationTokenSource to manage the light.
             cancellationTokenSource = new CancellationTokenSource();
-            await Task.Run(async () =>
-            {
-                isPlaying = true;
-                canPause = true;
-                canStop = true;
 
-                await Morse.GetConverter()
-               .ForLanguage(languageState!.Value.Language)
-               .ToLight(theMorse!)
-               .SetBlinkerOptions(settingState!.Value.CharSpeed, settingState!.Value.WordSpeed)
-               .DoBlinks(DoBlinksCallback, cancellationTokenSource.Token);
+            isPlaying = true;
+            canPause = true;
+            canStop = true;
 
-            }, this.cancellationTokenSource.Token);
+            await Morse.PlayLightAsync(theMorse!, State.Language, MorseSettings.CharSpeed, MorseSettings.WordSpeed,
+                DoBlinksCallback, cancellationTokenSource.Token);
 
             errorOccurred = false;
 
@@ -133,8 +104,8 @@
         }
         finally
         {
-            /* 
-            * When the blinking completes, change back the play button 
+            /*
+            * When the blinking completes, change back the play button
             * Get the full morse, and move the offest back to 0.
             */
             isPlaying = false;
@@ -151,7 +122,7 @@
             /*
             * If it was playing, then substring the morse form the offset
             * to the remaining. then cancle the task.
-            */ 
+            */
             theMorse = theMorse!.Substring(this.offset);
             this.cancellationTokenSource!.Cancel();
         }
@@ -183,12 +154,11 @@
     void CloseSection()
     {
         //Re-init the light blinker
-        this.cancellationTokenSource!.Cancel();
+        this.cancellationTokenSource?.Cancel();
         ResetPlayer();
         GetMorse();
 
-        LightSectionAction action = new() { IsOpened = false };
-        dispatcher!.Dispatch(action);
+        State.ClosePanel();
     }
     void ResetPlayer()
     {
@@ -196,5 +166,8 @@
         canPause = false;
         canStop = false;
     }
+
+    public void Dispose() => cancellationTokenSource?.Cancel();
+
     #endregion
 }

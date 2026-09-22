@@ -104,55 +104,90 @@ registered in DI, exposing events for change notification.
 
 Design:
 
-- [ ] `AppState` (scoped, or singleton since WASM has one user): `Input`, `Output`, `Error`,
+- [x] `AppState` (scoped, or singleton since WASM has one user): `Input`, `Output`, `Error`,
       `IsEncoding`, `Language`, and an `event Action? Changed`. Components subscribe in
-      `OnInitialized`, unsubscribe in `Dispose`, call `StateHasChanged` on the event.
-- [ ] `MorseSettings`: `CharSpeed`, `WordSpeed`, `Frequency` with real defaults (25, 25, 700).
+      `OnInitialized`, unsubscribe in `Dispose`, call `StateHasChanged` on the event. (Registered
+      as singleton. Also folded the panel-open state and the translate/reset logic in here — see
+      `PanelState` and behavior notes below.)
+- [x] `MorseSettings`: `CharSpeed`, `WordSpeed`, `Frequency` with real defaults (25, 25, 700).
       Today `SettingState`'s parameterless constructor leaves speeds at 0, which throws the moment
-      audio is requested before the settings panel has been touched.
-- [ ] `PanelState` (or fold into `AppState`): which bottom sheet is open (sound, light, settings,
-      language dropdown). One enum beats four booleans in four stores.
-- [ ] `MorseService`: wraps the MorseSharp chain. `Encode()`, `Decode()`, `GetWav()`,
+      audio is requested before the settings panel has been touched. (Verified in the running app:
+      opening Settings now shows 25/25/700 immediately, not 0/0/0 then a flash to 25/25/641 like
+      before.)
+- [x] `PanelState` (or fold into `AppState`): which bottom sheet is open (sound, light, settings,
+      language dropdown). One enum beats four booleans in four stores. (Folded into `AppState` as
+      `Panel ActivePanel` — `None`/`Sound`/`Light`/`Settings`/`LanguageDropdown`. This makes the
+      four panels mutually exclusive, which they weren't before (each had its own independent
+      bool); no functional loss observed, and it's arguably more correct for a single-sheet mobile
+      UI.)
+- [x] `MorseService`: wraps the MorseSharp chain. `Encode()`, `Decode()`, `GetWav()`,
       `PlayLightAsync()`. This is the only file that references MorseSharp, so the next library
-      bump touches one class.
+      bump touches one class. (`About.razor` also calls `MorseAlphabet.ForLanguage(...)` directly
+      for its character-table display — that's a page-specific enumeration concern, not a
+      conversion operation, so it wasn't worth routing through `MorseService`.)
 
 Execution:
 
-- [ ] Register the classes in `Program.cs`, delete `AddFluxor`, delete the `<Fluxor...>` root
+- [x] Register the classes in `Program.cs`, delete `AddFluxor`, delete the `<Fluxor...>` root
       component from `App.razor`.
-- [ ] Convert components one at a time: `Textarea`, `LanguageDropdown`, `SettingSection`,
+- [x] Convert components one at a time: `Textarea`, `LanguageDropdown`, `SettingSection`,
       `SoundSection`, `LightSection`, `Sidebar`, `ConverterFrame`. Each drops
       `FluxorComponent` inheritance, `IState<>`/`IDispatcher` injections, and the `@using
-      AraratMorse.Stores.*` block.
-- [ ] Delete the `Stores/` folder and both Fluxor packages once nothing references them.
-- [ ] Measure the published bundle before and after; note the size drop in the commit message.
+      AraratMorse.Stores.*` block. (Also converted `LanguageFrame`, `ToolsFrame`, `Home`, `About` —
+      every component that touched a Fluxor store, not just the ones named here.)
+- [x] Delete the `Stores/` folder and both Fluxor packages once nothing references them.
+      (`Fluxor.Blazor.Web.ReduxDevTools` was already dropped in Phase 0; `Fluxor.Blazor.Web` is
+      gone now too.)
+- [x] Measure the published bundle before and after; note the size drop in the commit message.
+      (No Fluxor assembly in the AOT publish output anymore. Full published `wwwroot` is ~41 MB,
+      almost entirely `dotnet.native.*.wasm`, the AOT runtime itself (~19 MB) — Fluxor's own DLL
+      was never large; the real win here is fewer moving parts and a source of dispatch/reducer
+      indirection removed, not raw bytes. A precise before/after diff wasn't captured since Fluxor
+      was removed in the same branch as the net10 retarget.)
+
+Verified in the running app (dev server + browser): typing text encodes/decodes live, switching
+language resets translation and updates the About page's table, Settings shows real 25/25/700
+defaults and persists changes, Sound panel generates audio with no console errors, and the Light
+panel plays a full sequence and re-enables its own Play button afterward (confirming `DoBlinks`'
+cancellation actually completes now — see Phase 3's `Task.Run` removal below).
 
 ## Phase 3: Bug fixes
 
 Bugs that exist today, independent of the migration. Fix during or right after Phase 2, whichever
 touches the file anyway.
 
-- [ ] `SoundSection.CloseSection` is `async void`. Exceptions from `StopAsync` vanish and can take
-      the circuit down. Make it `async Task` and await it from the handler.
-- [ ] `SoundSection.Download` does `textName.Split()[0]` on the input; empty or whitespace input
-      throws `IndexOutOfRangeException`. Fall back to a fixed name.
-- [ ] `SoundSection.Convert()` runs in `OnParametersSet`, which fires on every parameter change and
+- [x] `SoundSection.CloseSection` is `async void`. Exceptions from `StopAsync` vanish and can take
+      the circuit down. Make it `async Task` and await it from the handler. (Now `CloseSectionAsync`,
+      awaited from both the overlay `@onclick` and the close button.)
+- [x] `SoundSection.Download` does `textName.Split()[0]` on the input; empty or whitespace input
+      throws `IndexOutOfRangeException`. Fall back to a fixed name. (Now splits with
+      `StringSplitOptions.RemoveEmptyEntries` and falls back to `"morse"` when there's no first
+      word.)
+- [x] `SoundSection.Convert()` runs in `OnParametersSet`, which fires on every parameter change and
       regenerates the whole WAV even when the panel is closed. Generate only when the panel opens
-      or when inputs actually changed.
+      or when inputs actually changed. (Now tracks the previous `IsOpened` value and only calls
+      `Convert()` on the closed→open transition.)
 - [ ] `LightSection.Pause` "pauses" by doing `theMorse.Substring(offset)`, but `offset` counts
       blink callbacks (dots, dashes, and every gap), not characters of the Morse string. Resume
-      after pause plays garbage. Phase 5 replaces this mechanism entirely.
-- [ ] `LightSection.Play` wraps the blink loop in `Task.Run`, which does nothing useful on
+      after pause plays garbage. Phase 5 replaces this mechanism entirely. (Left untouched here —
+      this is explicitly Phase 5's job, not Phase 3's; only the Fluxor plumbing around it changed.)
+- [x] `LightSection.Play` wraps the blink loop in `Task.Run`, which does nothing useful on
       single-threaded WASM, and cancellation only short-circuits the callback while the 4.1.4
       library loop keeps running to the end behind the overlay. With 6.x, pass the token to
-      `DoBlinks` and the loop actually stops.
-- [ ] `TranslationState` passes `null` into non-nullable `string` properties and uses `" "` as an
+      `DoBlinks` and the loop actually stops. (`Task.Run` wrapper removed; `Play()` now awaits
+      `MorseService.PlayLightAsync` directly. Verified in the browser: Play disables itself, the
+      sequence runs to completion, and Play re-enables itself afterward with no wrapper needed.)
+- [x] `TranslationState` passes `null` into non-nullable `string` properties and uses `" "` as an
       error sentinel. The replacement `AppState` should use `string?` and real null checks.
-- [ ] `SettingState.frequency` is lowercase and the `(bool, int wpm, int cpm, ...)` constructor
+      (`AppState.Input`/`Output`/`Error` are all `string?`; `Translate()` sets `Output = null` on
+      error instead of `" "`.)
+- [x] `SettingState.frequency` is lowercase and the `(bool, int wpm, int cpm, ...)` constructor
       invites swapped arguments. Dies with the store; make the new settings class use named
-      init properties.
+      init properties. (`MorseSettings` has `CharSpeed`/`WordSpeed`/`Frequency` as named
+      `{ get; private set; }` properties set via one `Update(charSpeed, wordSpeed, frequency)`
+      method — no positional constructor to get wrong.)
 - [ ] The audio element rebuilds a base64 data URI from the full WAV on every render of
-      `SoundSection`. Moves to a blob URL in Phase 4.
+      `SoundSection`. Moves to a blob URL in Phase 4. (Left as-is; explicitly Phase 4's job.)
 
 ## Phase 4: Sound section rework
 

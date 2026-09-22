@@ -1,5 +1,4 @@
-﻿@inherits Fluxor.Blazor.Web.Components.FluxorComponent
-@using AraratMorse.Stores.TranslationState;
+﻿@implements IDisposable
 
 @inject IClipLazor clipboard;
 
@@ -50,7 +49,7 @@
     #region States
 
     [Inject]
-    private IState<TranslationState> TranslationState { get; set; }
+    private AppState State { get; set; } = default!;
 
     #endregion
 
@@ -81,17 +80,23 @@
     #endregion
 
     #region Methods
-    protected override void OnParametersSet()
+
+    protected override void OnInitialized() => State.Changed += HandleStateChanged;
+
+    protected override void OnParametersSet() => UpdateCanCopy();
+
+    void HandleStateChanged()
     {
-        /*
-         * If the text is not empty and there was not any error
-         * the copy button will be displayed.
-         */
-        if (!string.IsNullOrEmpty(Text) && string.IsNullOrEmpty(TranslationState.Value.Error))
-            canCopy = true;
-        else
-            canCopy = false;
+        UpdateCanCopy();
+        StateHasChanged();
     }
+
+    /*
+     * If the text is not empty and there was not any error
+     * the copy button will be displayed.
+     */
+    void UpdateCanCopy() =>
+        canCopy = !string.IsNullOrEmpty(Text) && string.IsNullOrEmpty(State.Error);
 
     public async Task CanCopy(ChangeEventArgs e)
     {
@@ -110,6 +115,8 @@
         await Task.Delay(1000);
         isCopied = false;
     }
+
+    public void Dispose() => State.Changed -= HandleStateChanged;
 
     #endregion
 }

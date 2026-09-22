@@ -1,60 +1,34 @@
-﻿using AraratMorse.Stores;
-using AraratMorse.Stores.LangDropDownState;
-using AraratMorse.Stores.LanguageState;
-using AraratMorse.Stores.TranslationState;
-using Fluxor;
+using AraratMorse.State;
 using Microsoft.AspNetCore.Components;
 using MorseSharp;
 
 namespace AraratMorse.Components.UI;
 
-public partial class LanguageDropdown
+public partial class LanguageDropdown : IDisposable
 {
-    private void OpenMenu()
-    {
-        var action = new LanguageDropdownAction {IsMenuOpened = true};
-        Dispatcher.Dispatch(action);
-    }
+    private void OpenMenu() => State.ShowPanel(Panel.LanguageDropdown);
+
+    private bool IsMenuOpened => State.ActivePanel == Panel.LanguageDropdown;
 
     protected override void OnInitialized()
     {
-        base.OnInitialized();
-
-        //Set initial state for the dropdown
-        if (LanguageState.Value.Language == 0)
-            Dispatcher.Dispatch(new LanguageAction {Language = Language.Kurdish});
-
-        Dispatcher.Dispatch(new LanguageDropdownAction {IsMenuOpened = false});
+        State.Changed += HandleStateChanged;
     }
+
+    void HandleStateChanged() => StateHasChanged();
 
     private void ChangeLanguage(Language language)
     {
-        var lanAction = new LanguageAction {Language = language};
-        Dispatcher.Dispatch(lanAction);
-
-        // Every time the user change the language the textarea inputs should reset
-        var translationActoin = new ResetTranslationAction
-            {Input = string.Empty, Output = string.Empty, Error = string.Empty};
-
-        Dispatcher.Dispatch(translationActoin);
-        //After the language changed close the menu
-        CloseMenu();
+        State.SetLanguage(language);
     }
 
-    private void CloseMenu()
-    {
-        var action = new LanguageDropdownAction {IsMenuOpened = false};
-        Dispatcher.Dispatch(action);
-    }
+    private void CloseMenu() => State.ClosePanel();
+
+    public void Dispose() => State.Changed -= HandleStateChanged;
 
     #region States
 
-    [Inject] private IState<LanguageDropdownState> DropdownState { get; set; }
-
-    [Inject] private IState<LanguageState> LanguageState { get; set; }
-
-    [Inject] private IDispatcher Dispatcher { get; set; }
-    [Inject] private IState<TranslationState> translationState { get; set; }
+    [Inject] private AppState State { get; set; } = default!;
 
     #endregion
 }
