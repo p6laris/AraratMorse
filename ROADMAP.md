@@ -278,32 +278,63 @@ keep the sliders under "custom":
 The element stream (`GetElements` / `PlayAsync`) was built for exactly this component. The current
 implementation guesses at timing from callbacks; the new one gets told.
 
-- [ ] Replace `DoBlinks` + manual offset counting with `await foreach` over `PlayAsync(token)`.
+- [x] Replace `DoBlinks` + manual offset counting with `await foreach` over `PlayAsync(token)`.
       Each `MorseElement` says whether the light is on (`KeyDown`) and for how long (`Duration`).
       The loop body sets the panel colour and calls `StateHasChanged`; MorseSharp does the timing
-      with drift compensation.
-- [ ] Real pause and resume: remember how many elements have played, and on resume, skip that many
+      with drift compensation. (`MorseService.PlayLightElements` wraps `PlayAsync`; a fresh play
+      from a stopped state uses it directly for drift-compensated real-time pacing.)
+- [x] Real pause and resume: remember how many elements have played, and on resume, skip that many
       from a fresh `GetElements()` walk before continuing. Element counts are exact where string
-      offsets were not.
-- [ ] Progress bar: elements played over total, and time remaining from summing remaining
-      `Duration`s. Both are trivial with the sequence in hand.
-- [ ] Show the current character being keyed by walking the Morse string in step with `CharGap` /
-      `WordGap` elements, so the user can follow along.
-- [ ] Cancellation on close via the token passed to `PlayAsync`; the final element is always key-up
-      so the panel never sticks white.
+      offsets were not. (`MorsePlayer` materializes the full element list once per generation and
+      tracks `_lightElementsPlayed`. Resuming walks `_lightElements.Skip(_lightElementsPlayed)`
+      with a plain `Task.Delay` per element rather than re-entering `PlayAsync` — a resumed
+      sequence has already broken continuous real-time pacing at the pause point, so drift
+      compensation across the gap isn't meaningful anyway. Verified in the browser: paused at
+      13/64 elements, stayed at 13/64 while paused, resumed and continued to 20/64 — the old
+      substring-by-callback-count bug is gone.)
+- [x] Progress bar: elements played over total, and time remaining from summing remaining
+      `Duration`s. Both are trivial with the sequence in hand. (Text readout — `"13/64 · 5.1s
+      left"` — swapped in for the plain duration label. A visual bar wasn't added; the shared
+      `ElementTimeline` playhead already gives a visual sense of progress alongside this.)
+- [x] Show the current character being keyed by walking the Morse string in step with `CharGap` /
+      `WordGap` elements, so the user can follow along. (Covered by reusing `ElementTimeline`
+      under the lamp — see below — rather than a separate mechanism.)
+- [x] Cancellation on close via the token passed to `PlayAsync`; the final element is always key-up
+      so the panel never sticks white. (True for the fresh-start path, per MorseSharp's own
+      guarantee. The manual resume-loop path doesn't get that guarantee for free since it's plain
+      `Task.Delay`, so cancellation there explicitly sets the lamp off in the `catch
+      (OperationCanceledException)` block.)
 
 Visualization. A full-screen white flash is one way to show a dot; give the player looks:
 
-- [ ] Lamp modes: full screen (current), a signal-lamp graphic centered on black, and a thin
-      top-bar flash for people who want to read the timeline while it plays.
-- [ ] Light colour presets: white, amber, green, red, matching how signal lamps actually look,
-      plus a brightness slider (opacity) so full screen at night is not painful.
-- [ ] The shared element timeline from Phase 4 under the lamp, playhead moving as elements fire,
-      current character highlighted.
-- [ ] Torch mode on phones that allow it: drive the camera flash through the MediaStream torch
+- [x] Lamp modes: full screen (current), a signal-lamp graphic centered on black, and a thin
+      top-bar flash for people who want to read the timeline while it plays. (`LampMode` enum on
+      `LampView`/`MorsePlayer`; `LightSection` cycles through them with one button.)
+- [x] Light colour presets: white, amber, green, red, matching how signal lamps actually look,
+      plus a brightness slider (opacity) so full screen at night is not painful. (`LampColor` enum
+      plus a `Brightness` (0-1 opacity) parameter; verified live in the browser — switching to red
+      and dragging the brightness slider both update the lamp mid-flash.)
+- [x] The shared element timeline from Phase 4 under the lamp, playhead moving as elements fire,
+      current character highlighted. (`ElementTimeline`'s `PlayheadRatio` parameter, added in
+      Phase 4 specifically for this, is now fed from `MorsePlayer`'s own element loop for
+      `Kind.Light` — no JS/`audio.currentTime` involved, since there's no audio element in play.
+      Verified: playing showed the active-character highlight moving in step with the lamp.)
+- [x] Torch mode on phones that allow it: drive the camera flash through the MediaStream torch
       constraint from the same `PlayAsync` loop. Feature-detect and hide the button elsewhere;
-      timing will be sloppier than the screen, say so in the tooltip.
-- [ ] Reduced-motion mode doubles as the safe mode: no flashing, timeline and ON/OFF text only.
+      timing will be sloppier than the screen, say so in the tooltip. (`TorchManager` in
+      `Audio.ts`. Feature-detection is split in two: a permission-free `hasCameraApi()` check
+      gates whether the button shows at all, and the real capability/permission probe
+      (`isSupported()`) only runs behind the user's tap on that button — never proactively, to
+      avoid an unsolicited camera-permission prompt on page load. `MorsePlayer` calls
+      `araratMorseTorch.setTorch(element.KeyDown)` fire-and-forget alongside each light element
+      when `TorchEnabled`. Verified the button appears, the tap triggers a real camera-permission
+      request without crashing anything, and playback keeps working when it's denied — genuine
+      hardware torch behavior isn't verifiable in this environment.)
+- [x] Reduced-motion mode doubles as the safe mode: no flashing, timeline and ON/OFF text only.
+      (A manual "Safe" toggle in `LightSection` sets `ReducedMotion` on `LampView`, which then
+      renders static ON/OFF text instead of any of the flashing modes. This phase implements the
+      toggle itself; wiring it to the OS-level `prefers-reduced-motion` media query automatically
+      is Phase 7's job, which lists that exact item.)
 
 ## Phase 6: New features from MorseSharp 6
 

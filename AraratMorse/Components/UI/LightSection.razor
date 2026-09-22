@@ -1,15 +1,47 @@
 @using AraratMorse.Components.UI.Player
+@implements IAsyncDisposable
 
 @* Overlay *@
 <div @onclick="CloseSection" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
 
 <div class="fixed bottom-0 left-0 flex flex-col justify-between bg-black text-white items-center w-full h-full rounded-t-lg p-5 mt-10 z-50 transition-transform shadow-top @(!IsOpened ? "translate-y-full" : "translate-y-0")">
-    <button @onclick="CloseSection" class="text-white text-start self-start rounded-full p-2">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10s10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17L12 13.41L8.41 17L7 15.59L10.59 12L7 8.41L8.41 7L12 10.59L15.59 7L17 8.41L13.41 12L17 15.59z" /></svg>
-    </button>
+    <div class="flex items-center justify-between w-full">
+        <button @onclick="CloseSection" class="text-white text-start rounded-full p-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10s10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17L12 13.41L8.41 17L7 15.59L10.59 12L7 8.41L8.41 7L12 10.59L15.59 7L17 8.41L13.41 12L17 15.59z" /></svg>
+        </button>
+
+        @* Lamp look controls *@
+        <div class="flex items-center gap-2 text-xs">
+            <button @onclick="CycleMode" title="Lamp shape" class="rounded-full border border-white/40 px-2 py-1">@ModeLabel</button>
+
+            @foreach (var color in ColorOptions)
+            {
+                <button @onclick="() => _lampColor = color" title="@color"
+                        class="w-4 h-4 rounded-full border @(_lampColor == color ? "border-white" : "border-white/30")"
+                        style="background-color:@ColorSwatch(color)"></button>
+            }
+
+            <button @onclick="() => _reducedMotion = !_reducedMotion" title="Safe mode (no flashing)"
+                    class="rounded-full border px-2 py-1 @(_reducedMotion ? "bg-white text-black border-white" : "border-white/40")">
+                Safe
+            </button>
+
+            @if (_torchSupported)
+            {
+                <button @onclick="ToggleTorch" title="Camera flash"
+                        class="rounded-full border px-2 py-1 @(_torchEnabled ? "bg-white text-black border-white" : "border-white/40")">
+                    Torch
+                </button>
+            }
+        </div>
+    </div>
+
+    <input type="range" min="0.2" max="1" step="0.05" @bind=_brightness @bind:event="oninput"
+           class="w-1/2 my-1" title="Brightness"/>
 
     <MorsePlayer MorseText="@MorseText" Language="State.Language" Kind="PlayerKind.Light" Size="PlayerSize.Full"
-                 Active="IsOpened"/>
+                 Active="IsOpened" LampMode="_lampMode" LampColor="_lampColor" LampBrightness="_brightness"
+                 ReducedMotion="_reducedMotion" TorchEnabled="_torchEnabled"/>
 
 </div>
 
@@ -18,6 +50,8 @@
     #region States
 
     [Inject] private AppState State { get; set; } = default!;
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     #endregion
 
@@ -28,12 +62,99 @@
 
     #endregion
 
+    #region Fields
+
+    static readonly LampColor[] ColorOptions = [LampColor.White, LampColor.Amber, LampColor.Green, LampColor.Red];
+
+    LampMode _lampMode = LampMode.FullScreen;
+    LampColor _lampColor = LampColor.White;
+    double _brightness = 1.0;
+    bool _reducedMotion;
+    bool _torchSupported;
+    bool _torchEnabled;
+
+    #endregion
+
     #region Methods
 
     //The morse text is the encoded Output when encoding, or the typed morse Input when decoding.
     string MorseText => (State.IsEncoding ? State.Output : State.Input) ?? "";
 
+    string ModeLabel => _lampMode switch
+    {
+        LampMode.FullScreen => "Full",
+        LampMode.SignalLamp => "Lamp",
+        LampMode.TopBar => "Bar",
+        _ => "Full"
+    };
+
+    static string ColorSwatch(LampColor color) => color switch
+    {
+        LampColor.White => "#ffffff",
+        LampColor.Amber => "#ffbf00",
+        LampColor.Green => "#00e676",
+        LampColor.Red => "#ff3b30",
+        _ => "#ffffff"
+    };
+
+    void CycleMode() => _lampMode = _lampMode switch
+    {
+        LampMode.FullScreen => LampMode.SignalLamp,
+        LampMode.SignalLamp => LampMode.TopBar,
+        _ => LampMode.FullScreen
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _torchSupported = await JS.InvokeAsync<bool>("araratMorseTorch.hasCameraApi");
+                StateHasChanged();
+            }
+            catch
+            {
+                // not available in this environment — just hide the button
+            }
+        }
+    }
+
+    async Task ToggleTorch()
+    {
+        if (_torchEnabled)
+        {
+            _torchEnabled = false;
+            return;
+        }
+
+        // Requesting camera access happens here, behind this user gesture, not proactively.
+        try
+        {
+            _torchEnabled = await JS.InvokeAsync<bool>("araratMorseTorch.isSupported");
+        }
+        catch
+        {
+            _torchEnabled = false;
+        }
+    }
+
     void CloseSection() => State.ClosePanel();
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_torchSupported)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("araratMorseTorch.release");
+            }
+            catch
+            {
+                // best effort
+            }
+        }
+    }
 
     #endregion
 }

@@ -20,8 +20,8 @@ public class MorseService
         Morse.GetConverter().ForLanguage(language).ToLight(morse)
             .SetBlinkerOptions(charSpeed, wordSpeed).GetElements();
 
-    public Task PlayLightAsync(string morse, Language language, int charSpeed, int wordSpeed,
-        Action<bool> onBlink, CancellationToken token) =>
+    public IAsyncEnumerable<MorseElement> PlayLightElements(string morse, Language language, int charSpeed,
+        int wordSpeed, CancellationToken token) =>
         Morse.GetConverter().ForLanguage(language).ToLight(morse)
-            .SetBlinkerOptions(charSpeed, wordSpeed).DoBlinks(onBlink, token);
+            .SetBlinkerOptions(charSpeed, wordSpeed).PlayAsync(token);
 }

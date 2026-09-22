@@ -118,8 +118,58 @@ namespace AraratMorse {
         }
     }
 
+    // Best-effort camera-flash torch control for the light player on phones that allow it.
+    // Timing rides on whatever the MediaStream constraint API delivers, which is looser than the
+    // screen — callers should say so in a tooltip.
+    class TorchManager {
+        track: MediaStreamTrack | null = null;
+
+        // A coarse, permission-free check: does the browser even expose the API. The real torch
+        // capability (and the camera-permission prompt that comes with it) is only probed by
+        // isSupported(), which callers should only invoke behind a user gesture.
+        hasCameraApi(): boolean {
+            return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        }
+
+        async isSupported(): Promise<boolean> {
+            try {
+                if (!navigator.mediaDevices?.getUserMedia) return false;
+
+                const stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
+                const track = stream.getVideoTracks()[0];
+                const capabilities = (track.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean };
+
+                if (capabilities.torch) {
+                    this.track = track;
+                    return true;
+                }
+
+                track.stop();
+                return false;
+            } catch {
+                return false;
+            }
+        }
+
+        async setTorch(on: boolean): Promise<void> {
+            if (!this.track) return;
+
+            try {
+                await this.track.applyConstraints({advanced: [{torch: on} as MediaTrackConstraintSet]});
+            } catch {
+                // best effort — nothing sensible to do if the constraint is rejected mid-session
+            }
+        }
+
+        release(): void {
+            this.track?.stop();
+            this.track = null;
+        }
+    }
+
     export function Load(): void {
         window['araratMorse'] = new AudioManager();
+        window['araratMorseTorch'] = new TorchManager();
     }
 }
 

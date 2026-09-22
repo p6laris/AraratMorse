@@ -18,20 +18,24 @@
             }
             @if (Kind is PlayerKind.Light or PlayerKind.Both)
             {
-                <LampView IsOn="_isLightOn"/>
+                <LampView IsOn="_isLightOn" Mode="LampMode" Color="LampColor" Brightness="LampBrightness"
+                          ReducedMotion="ReducedMotion"/>
             }
         </div>
 
-        @if (ShowTimeline && Kind is PlayerKind.Sound or PlayerKind.Both && _sequence is not null)
+        @if (ShowTimeline && _sequence is not null)
         {
             <div class="mt-2">
-                <ElementTimeline Id="@_timelineId" Sequence="_sequence"/>
+                <ElementTimeline Id="@_timelineId" Sequence="_sequence"
+                                 PlayheadRatio="@(Kind == PlayerKind.Light ? _lightPlayheadRatio : null)"/>
             </div>
         }
 
         @if (_sequence is { } sequence)
         {
-            <p class="text-white text-xs text-center mt-1 opacity-70">@FormatDuration(sequence.Duration)</p>
+            <p class="text-white text-xs text-center mt-1 opacity-70">
+                @(Kind is PlayerKind.Light or PlayerKind.Both && LightProgressText is { } progress ? progress : FormatDuration(sequence.Duration))
+            </p>
         }
 
         @* Toolbar *@
@@ -88,6 +92,18 @@
 
     [Parameter] public string DownloadName { get; set; } = "morse";
 
+    [Parameter] public LampMode LampMode { get; set; } = LampMode.FullScreen;
+
+    [Parameter] public LampColor LampColor { get; set; } = LampColor.White;
+
+    [Parameter] public double LampBrightness { get; set; } = 1.0;
+
+    [Parameter] public bool ReducedMotion { get; set; }
+
+    /// <summary>Drives the camera-flash torch (best effort) alongside the light loop. The host is
+    /// responsible for feature-detecting support and only offering this when available.</summary>
+    [Parameter] public bool TorchEnabled { get; set; }
+
     [Inject] private State.MorseService MorseService { get; set; } = default!;
 
     [Inject] private State.MorseSettings Settings { get; set; } = default!;
@@ -108,9 +124,23 @@
     bool _isLightOn;
     bool _needsAudioPush;
 
-    string? _lightRemainingMorse;
-    int _lightOffset;
+    List<MorseElement>? _lightElements;
+    int _lightElementsPlayed;
+    double _lightElapsedMs;
+    double? _lightPlayheadRatio;
     CancellationTokenSource? _lightCts;
+
+    string? LightProgressText
+    {
+        get
+        {
+            if (_lightElements is not { Count: > 0 } elements || _sequence is not { } sequence)
+                return null;
+
+            var remainingMs = Math.Max(0, sequence.Duration.TotalMilliseconds - _lightElapsedMs);
+            return $"{_lightElementsPlayed}/{elements.Count} · {FormatDuration(TimeSpan.FromMilliseconds(remainingMs))} left";
+        }
+    }
 
     bool _wasActive;
     string? _lastMorseText;
@@ -155,11 +185,24 @@
                 _needsAudioPush = true;
             }
 
+            _lightElements = null;
+
             if (Kind is not PlayerKind.Sound || ShowTimeline)
+            {
                 _sequence = MorseService.GetElements(MorseText, Language, Settings.CharSpeed, Settings.WordSpeed);
 
-            _lightRemainingMorse = MorseText;
-            _lightOffset = 0;
+                if (Kind is PlayerKind.Light or PlayerKind.Both)
+                {
+                    var elements = new List<MorseElement>();
+                    foreach (var element in _sequence.Value)
+                        elements.Add(element);
+                    _lightElements = elements;
+                }
+            }
+
+            _lightElementsPlayed = 0;
+            _lightElapsedMs = 0;
+            _lightPlayheadRatio = 0;
             _errorOccurred = false;
         }
         catch (Exception ex)
@@ -187,11 +230,40 @@
 
     async Task PlayLightAsync()
     {
+        _lightCts = new CancellationTokenSource();
+        var token = _lightCts.Token;
+
         try
         {
-            _lightCts = new CancellationTokenSource();
-            await MorseService.PlayLightAsync(_lightRemainingMorse ?? MorseText, Language, Settings.CharSpeed,
-                Settings.WordSpeed, OnBlink, _lightCts.Token);
+            if (_lightElementsPlayed == 0)
+            {
+                // Fresh start: MorseSharp's own PlayAsync paces this in real time with drift
+                // compensation, and switches the light off before the task observes cancellation.
+                await foreach (var element in MorseService.PlayLightElements(MorseText, Language,
+                                   Settings.CharSpeed, Settings.WordSpeed, token))
+                {
+                    ApplyLightElement(element);
+                }
+            }
+            else if (_lightElements is not null)
+            {
+                // Resume: walk the remaining elements from the sequence already computed for the
+                // full text, rather than re-deriving a "remaining morse" substring by character
+                // count (which is what produced garbage after a pause previously).
+                foreach (var element in _lightElements.Skip(_lightElementsPlayed))
+                {
+                    token.ThrowIfCancellationRequested();
+                    await Task.Delay(element.Duration, token);
+                    ApplyLightElement(element);
+                }
+            }
+
+            _errorOccurred = false;
+        }
+        catch (OperationCanceledException)
+        {
+            // Manual resume loop doesn't get PlayAsync's own light-off-before-cancel guarantee.
+            _isLightOn = false;
         }
         catch
         {
@@ -200,17 +272,46 @@
         finally
         {
             _isPlaying = false;
-            _lightRemainingMorse = MorseText;
-            _lightOffset = 0;
+
+            if (_lightElements is null || _lightElementsPlayed >= _lightElements.Count)
+            {
+                _lightElementsPlayed = 0;
+                _lightElapsedMs = 0;
+                _lightPlayheadRatio = 0;
+            }
+
+            if (TorchEnabled)
+                _ = SetTorchAsync(false);
+
             StateHasChanged();
         }
     }
 
-    void OnBlink(bool on)
+    void ApplyLightElement(MorseElement element)
     {
-        ++_lightOffset;
-        _isLightOn = on;
+        _isLightOn = element.KeyDown;
+        _lightElapsedMs += element.Duration.TotalMilliseconds;
+        ++_lightElementsPlayed;
+
+        var totalMs = _sequence?.Duration.TotalMilliseconds ?? 0;
+        _lightPlayheadRatio = totalMs > 0 ? _lightElapsedMs / totalMs * 100 : 0;
+
+        if (TorchEnabled)
+            _ = SetTorchAsync(element.KeyDown);
+
         StateHasChanged();
+    }
+
+    async Task SetTorchAsync(bool on)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("araratMorseTorch.setTorch", on);
+        }
+        catch
+        {
+            // best effort — a lost/racing JS call here shouldn't break playback
+        }
     }
 
     async Task PauseAsync()
@@ -218,11 +319,8 @@
         if (Kind is PlayerKind.Sound or PlayerKind.Both)
             await JS.InvokeVoidAsync("araratMorse.pause", _soundId);
 
-        if (Kind is PlayerKind.Light or PlayerKind.Both && _isPlaying)
-        {
-            _lightRemainingMorse = (_lightRemainingMorse ?? MorseText)[Math.Min(_lightOffset, (_lightRemainingMorse ?? MorseText).Length)..];
+        if (Kind is PlayerKind.Light or PlayerKind.Both)
             _lightCts?.Cancel();
-        }
 
         _isPlaying = false;
     }
@@ -235,8 +333,13 @@
         if (Kind is PlayerKind.Light or PlayerKind.Both)
         {
             _lightCts?.Cancel();
-            _lightRemainingMorse = MorseText;
-            _lightOffset = 0;
+            _lightElementsPlayed = 0;
+            _lightElapsedMs = 0;
+            _lightPlayheadRatio = 0;
+            _isLightOn = false;
+
+            if (TorchEnabled)
+                await SetTorchAsync(false);
         }
 
         _isPlaying = false;
@@ -253,6 +356,9 @@
     public async ValueTask DisposeAsync()
     {
         _lightCts?.Cancel();
+
+        if (TorchEnabled)
+            await SetTorchAsync(false);
 
         if (Kind is PlayerKind.Sound or PlayerKind.Both)
         {
