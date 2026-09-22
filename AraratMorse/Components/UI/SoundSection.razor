@@ -1,4 +1,4 @@
-
+@using AraratMorse.Components.UI.Player
 
 @* Overlay *@
 <div @onclick="@(async () => await CloseSectionAsync())" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
@@ -12,41 +12,8 @@
         </svg>
     </button>
 
-    @if (errorOccurred)
-    {
-        <p class=" absolute top-16 text-white text-xl">Could not generate the audio.</p>
-    }
-    else
-    {
-        @* Canvas *@
-        <div class="rounded-lg relative z-0 w-full h-full">
-            <canvas id="soundVisualizer"></canvas>
-        </div>
-        <audio id="audio" class="hidden" src="@($"data:audio/wav;base64, {System.Convert.ToBase64String(soundByte.ToArray())}")"></audio>
-        @* Toolbar *@
-        <div class="absolute flex gap-2 left-0 right-0 mx-auto w-28 top-16 bg-white px-3 py-2 rounded-3xl z-10">
-            <button id="playBtn" @onclick=PlayAsync class="text-green-600">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-                    <path fill="currentColor" d="M6.235 2.192A1.5 1.5 0 0 0 4 3.499v9a1.5 1.5 0 0 0 2.235 1.308l8-4.5a1.5 1.5 0 0 0 0-2.615l-8-4.5Z"/>
-                </svg>
-            </button>
-            <button id="pauseBtn" @onclick="PauseAsync" class="text-gray-300">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-                    <path fill="currentColor" d="M3.75 2A1.75 1.75 0 0 0 2 3.75v8.5c0 .966.784 1.75 1.75 1.75h1.5A1.75 1.75 0 0 0 7 12.25v-8.5A1.75 1.75 0 0 0 5.25 2h-1.5Zm7 0A1.75 1.75 0 0 0 9 3.75v8.5c0 .966.784 1.75 1.75 1.75h1.5A1.75 1.75 0 0 0 14 12.25v-8.5A1.75 1.75 0 0 0 12.25 2h-1.5Z"/>
-                </svg>
-            </button>
-            <button id="stopBtn" @onclick="StopAsync" class="text-rose-300">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-                    <path fill="currentColor" d="M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8Zm5-3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H6Z"/>
-                </svg>
-            </button>
-            <button @onclick=Download class="text-gray-500">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-                    <path fill="currentColor" d="M5 2v2.5A1.5 1.5 0 0 0 6.5 6h2A1.5 1.5 0 0 0 10 4.5V2h.379a2 2 0 0 1 1.414.586l1.621 1.621A2 2 0 0 1 14 5.621V12a2 2 0 0 1-2 2V9.5A1.5 1.5 0 0 0 10.5 8h-5C4.673 8 4 8.669 4 9.498V14a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h1Zm1 0v2.5a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V2H6ZM5 14h6V9.5a.5.5 0 0 0-.5-.5h-5c-.277 0-.5.223-.5.498V14Z"/>
-                </svg>
-            </button>
-        </div>
-    }
+    <MorsePlayer @ref="_player" MorseText="@MorseText" Language="State.Language" Kind="PlayerKind.Sound"
+                 Size="PlayerSize.Full" Active="IsOpened" DownloadName="@DownloadName"/>
 
 </div>
 
@@ -56,103 +23,41 @@
 
     [Inject] private AppState State { get; set; } = default!;
 
-    [Inject] private MorseSettings MorseSettings { get; set; } = default!;
-
-    [Inject] private MorseService Morse { get; set; } = default!;
-
-    #endregion
-
-    #region Properties
-
-    [Inject] IJSRuntime? runtime { get; set; }
-    bool errorOccurred { get; set; }
-
     #endregion
 
     #region Parameters
 
     [Parameter] public bool IsOpened { get; set; }
 
-    bool canPause { get; set; }
-    bool canStop { get; set; }
-    bool canPlayOrResume { get; set; } = true;
-
     #endregion
 
     #region Fields
 
-    ReadOnlyMemory<byte> soundByte;
-
-    bool wasOpened;
+    MorsePlayer? _player;
 
     #endregion
 
     #region Methods
 
-    protected override void OnParametersSet()
-    {
-        // Only (re)generate the audio when the panel is opening, not on every render.
-        if (IsOpened && !wasOpened)
-            Convert();
+    //The morse text is the encoded Output when encoding, or the typed morse Input when decoding.
+    string MorseText => (State.IsEncoding ? State.Output : State.Input) ?? "";
 
-        wasOpened = IsOpened;
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    //First word of the source text, falling back to a fixed name when there isn't one.
+    string DownloadName
     {
-        if (IsOpened)
+        get
         {
-            await runtime!.InvokeVoidAsync("araratMorse.initAudio");
+            var textName = State.IsEncoding ? State.Input : State.Output;
+            var firstWord = textName?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            return string.IsNullOrEmpty(firstWord) ? "morse" : firstWord;
         }
     }
-
-    void Convert()
-    {
-        try
-        {
-            //The morse text is the encoded Output when encoding, or the typed morse Input when decoding.
-            var morse = State.IsEncoding ? State.Output : State.Input;
-
-            soundByte = Morse.GetWav(morse!, State.Language, MorseSettings.CharSpeed, MorseSettings.WordSpeed, MorseSettings.Frequency);
-
-            errorOccurred = false;
-        }
-        catch (Exception ex)
-        {
-            Console.Write(ex.Message);
-            errorOccurred = true;
-        }
-    }
-
-    async Task PlayAsync()
-    {
-        await runtime!.InvokeVoidAsync("araratMorse.play");
-    }
-
-    async Task PauseAsync()
-    {
-        await runtime!.InvokeVoidAsync("araratMorse.pause");
-    }
-
-    async Task StopAsync()
-    {
-        await runtime!.InvokeVoidAsync("araratMorse.stop");
-    }
-
-    //Download the audio, with the {text}.wav
-    async Task Download()
-    {
-        var textName = State.IsEncoding ? State.Input : State.Output;
-        var firstWord = textName?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-
-        await runtime!.InvokeVoidAsync("araratMorse.download",
-            string.IsNullOrEmpty(firstWord) ? "morse" : firstWord);
-    }
-
 
     async Task CloseSectionAsync()
     {
-        await StopAsync();
+        if (_player is not null)
+            await _player.StopAsync();
+
         State.ClosePanel();
     }
 

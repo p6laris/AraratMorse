@@ -197,50 +197,81 @@ Reusable player components first. Today sound and light are two full-screen bott
 to the converter page. Phase 6 needs players inside practice questions, the keyer page and the
 decoder page, so the players become components and the sheets become thin hosts:
 
-- [ ] `MorsePlayer`: takes text (or a ready `MorseElementSequence`), renders play/pause/stop, and
+- [x] `MorsePlayer`: takes text (or a ready `MorseElementSequence`), renders play/pause/stop, and
       composes the pieces below. Parameters pick what it shows: sound only, light only, both,
       timeline on or off. Two sizes, full panel and an inline card that fits inside a question.
-- [ ] `ElementTimeline`: the dots-and-dashes strip with playhead and current-character highlight.
-- [ ] `LampView`: the flashing surface with its lamp modes and colours.
-- [ ] `WaveformView`: the PCM waveform canvas.
-- [ ] `SoundSection` and `LightSection` shrink to bottom sheets that host a full-size
+      (`Kind` (`Sound`/`Light`/`Both`) and `Size` (`Full`/`Inline`) parameters exist and are
+      implemented; only `Full` + `Sound`/`Light` are actually exercised right now, by
+      `SoundSection`/`LightSection`. `Both` and `Inline` are wired but unconsumed until Phase 6.)
+- [x] `ElementTimeline`: the dots-and-dashes strip with playhead and current-character highlight.
+- [x] `LampView`: the flashing surface with its lamp modes and colours. (Modes/colours are
+      explicitly Phase 5's job per that phase's own checklist — this is the plain on/off surface
+      extracted out of the old inline markup.)
+- [x] `WaveformView`: the PCM waveform canvas. (Rendered as SVG rather than an actual
+      `<canvas>` — simpler, no per-frame JS drawing needed since it's a static peak envelope; see
+      the visualization notes below.)
+- [x] `SoundSection` and `LightSection` shrink to bottom sheets that host a full-size
       `MorsePlayer`; everything below in this phase and Phase 5 is built inside the components,
       not the sheets.
 
-- [ ] Let the user pick quality: sample rate and bit depth via `AudioFormat` in the settings panel
+- [x] Let the user pick quality: sample rate and bit depth via `AudioFormat` in the settings panel
       (11 kHz 16-bit default, 44.1 kHz float for download). The fade is on by default and needs no
-      UI beyond maybe an on/off toggle.
-- [ ] Replace the base64 `data:` URI with a JS blob URL: pass the byte array over interop once,
+      UI beyond maybe an on/off toggle. (A "Quality" select — Standard/Studio — and a "Fade edges"
+      checkbox, both only enabled under the `Custom` preset.)
+- [x] Replace the base64 `data:` URI with a JS blob URL: pass the byte array over interop once,
       `URL.createObjectURL`, revoke the old URL on regeneration and on dispose. Cuts a full
-      base64 copy of the WAV out of every render and out of the DOM.
-- [ ] Download through the same blob URL instead of a second copy.
-- [ ] Name downloads sensibly: first word of the source text if there is one, `morse.wav` if not.
-- [ ] Show duration next to the player. `GetElements()` gives it for free:
-      `sequence.Duration`, no need to decode the WAV header in JS.
+      base64 copy of the WAV out of every render and out of the DOM. (`araratMorse.setSource`
+      revokes any previous blob URL for that audio element before creating the new one;
+      `disposePlayer` revokes on component dispose.)
+- [x] Download through the same blob URL instead of a second copy. (`araratMorse.download` now
+      just anchors to the already-created blob URL — no second `fetch` of the audio element's
+      `src` like the old code did.)
+- [x] Name downloads sensibly: first word of the source text if there is one, `morse.wav` if not.
+      (Carried over from the Phase 3 fix, now feeding `MorsePlayer`'s `DownloadName` parameter.)
+- [x] Show duration next to the player. `GetElements()` gives it for free:
+      `sequence.Duration`, no need to decode the WAV header in JS. (Shown under the
+      visualization, formatted `m:ss.f` or `s.f"s"`.)
 
 Visualization. The current canvas guesses at the signal through the Web Audio analyser; the app
 owns the PCM bytes and the element timeline, so it can draw the truth instead:
 
-- [ ] Waveform view rendered once from the actual samples (downsample to one min/max pair per
+- [x] Waveform view rendered once from the actual samples (downsample to one min/max pair per
       pixel column), with a playhead synced to `audio.currentTime`. No analyser, no per-frame
-      FFT cost.
-- [ ] Element timeline view: dots and dashes as blocks on a strip, gaps as spacing, built from
+      FFT cost. (`WavSamples.Read` parses the WAV's `fmt `/`data` chunks directly — handles 8/16/32
+      -bit and multi-channel by reading the first channel only — and `WavSamples.Downsample`
+      produces the min/max pairs, rendered as 200 SVG `<rect>`s. The playhead itself is a `<div>`
+      whose `left%` a small JS `requestAnimationFrame` loop drives from `audio.currentTime`, with
+      no round trip to Blazor per frame.)
+- [x] Element timeline view: dots and dashes as blocks on a strip, gaps as spacing, built from
       `GetElements()`. Highlight the block under the playhead and the character it belongs to,
-      so the user reads along while it plays.
-- [ ] Make the timeline a shared component; Phase 5 reuses it under the light player.
-- [ ] Keep the old analyser view as a third "spectrum" mode if it costs nothing; otherwise let
-      it go.
+      so the user reads along while it plays. (Elements are grouped into per-character blocks with
+      `data-start`/`data-end` fractional-time attributes; the same JS rAF loop that drives the
+      waveform playhead also toggles a highlight class on whichever `.timeline-char` block the
+      current ratio falls inside — one interop call, no Blazor round trip per frame here either.)
+- [x] Make the timeline a shared component; Phase 5 reuses it under the light player. (`ElementTimeline`
+      only renders under the sound player for now — its `PlayheadRatio` parameter exists so a
+      C#-driven position, like Phase 5's `PlayAsync` element loop, can drive it directly without any
+      JS/`audio.currentTime` involved, but nothing supplies that yet. Deliberately left as Phase 5's
+      job per that phase's own note: "Phase 5 reuses it under the light player.")
+- [x] Keep the old analyser view as a third "spectrum" mode if it costs nothing; otherwise let
+      it go. (Let it go — the `AudioContext`/`AnalyserNode` wiring and its `requestAnimationFrame`
+      FFT redraw loop are gone from `Audio.ts` entirely, replaced by the real-sample SVG waveform.)
 
 Presets. Speeds, tone and format are four sliders nobody wants to learn; ship named presets and
 keep the sliders under "custom":
 
-- [ ] Sound presets, each a (charSpeed, wordSpeed, frequency, AudioFormat) bundle:
+- [x] Sound presets, each a (charSpeed, wordSpeed, frequency, AudioFormat) bundle:
       `Classic` 20/20 at 700 Hz, `Practice` 20/12 Farnsworth at 600 Hz, `Contest` 30/30 at
       650 Hz, `Soft` 18/18 at 550 Hz with a 10 ms fade, `Studio` 44.1 kHz float32 for clean
-      downloads.
-- [ ] `Custom` preset that exposes the sliders, saved to localStorage, restored on load.
-- [ ] Presets live in the settings panel and apply to both the sound and light players, since
-      speeds are shared.
+      downloads. (`SoundPreset.All`; the settings panel shows one button per preset — picking one
+      applies it to `MorseSettings` immediately, live-tested in the browser.)
+- [x] `Custom` preset that exposes the sliders, saved to localStorage, restored on load. (Selecting
+      `Custom` unlocks the WPM/CPM/Frequency/Quality/Fade fields; Save persists them as JSON under
+      `araratmorse.customSound` and `SettingSection` restores and reapplies them on the next load —
+      verified end-to-end: edited values survived a full page reload.)
+- [x] Presets live in the settings panel and apply to both the sound and light players, since
+      speeds are shared. (True by construction — both `MorsePlayer` instances read the same
+      injected `MorseSettings` singleton.)
 
 ## Phase 5: Light section rework
 

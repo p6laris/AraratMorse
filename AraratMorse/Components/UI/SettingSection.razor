@@ -1,35 +1,66 @@
+@using System.Text.Json
 @using AraratMorse.Models
+@using MorseSharp.Audio
 @implements IDisposable
 
 @* Overlay *@
 <div @onclick="@(async() => await CloseSectionAsync())" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
 
-<div class="fixed flex flex-col items-center bg-white font-sans font-thin top-0 right-0 z-40 w-64 h-screen transition-transform z-50 py-4 @(IsOpened ? "translate-x-0" : "translate-x-full")">
+<div class="fixed flex flex-col items-center bg-white font-sans font-thin top-0 right-0 z-40 w-64 h-screen overflow-y-auto transition-transform z-50 py-4 @(IsOpened ? "translate-x-0" : "translate-x-full")">
     @* Setting Body *@
-    <h3 class="text-4xl mb-10 font-norma">Settings</h3>
+    <h3 class="text-4xl mb-6 font-norma">Settings</h3>
+
+    <div class="flex flex-wrap justify-center gap-1 mb-6 px-2">
+        @foreach (var preset in AraratMorse.State.SoundPreset.All)
+        {
+            <button type="button" @onclick="() => SelectPreset(preset)"
+                    class="text-xs rounded-full px-3 py-1 @(selectedPreset == preset.Name ? "bg-black text-white" : "bg-gray-100 text-black")">
+                @preset.Name
+            </button>
+        }
+        <button type="button" @onclick="SelectCustom"
+                class="text-xs rounded-full px-3 py-1 @(selectedPreset == AraratMorse.State.SoundPreset.CustomName ? "bg-black text-white" : "bg-gray-100 text-black")">
+            Custom
+        </button>
+    </div>
 
     <EditForm Model="@settings" OnValidSubmit="@(async() => await CloseSectionAsync())">
 
         <FluentValidationValidator @ref=validator DisableAssemblyScanning=true />
 
-        <div class="flex flex-col items-center mb-2">
-            <p>Word Per Minute</p>
-            <input @bind-value=@settings.WordSpeed class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none" type="number"/>
-            <ValidationMessage For="() => settings.WordSpeed" class="text-rose-300 text-xs text-center font-medium" />
-        </div>
-        <div class="flex flex-col items-center mb-2">
-            <p>Char Per Minute</p>
-            <input @bind-value=@settings.CharSpeed class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none" type="number" />
-            <ValidationMessage For="@(() => settings.CharSpeed)" class="text-rose-300 text-xs text-center font-medium" />
-        </div>
-        <div class="flex flex-col items-center">
-            <p>Frequency</p>
-            <input @bind-value=@settings.Frequency class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none" type="number"  />
-            <ValidationMessage For="@(() => settings.Frequency)" class="text-rose-300 text-xs text-center font-medium" />
+        <fieldset disabled="@(!IsCustom)" class="flex flex-col items-center">
+            <div class="flex flex-col items-center mb-2">
+                <p>Word Per Minute</p>
+                <input @bind-value=@settings.WordSpeed class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none disabled:opacity-50" type="number"/>
+                <ValidationMessage For="() => settings.WordSpeed" class="text-rose-300 text-xs text-center font-medium" />
+            </div>
+            <div class="flex flex-col items-center mb-2">
+                <p>Char Per Minute</p>
+                <input @bind-value=@settings.CharSpeed class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none disabled:opacity-50" type="number" />
+                <ValidationMessage For="@(() => settings.CharSpeed)" class="text-rose-300 text-xs text-center font-medium" />
+            </div>
+            <div class="flex flex-col items-center mb-2">
+                <p>Frequency</p>
+                <input @bind-value=@settings.Frequency class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none disabled:opacity-50" type="number"  />
+                <ValidationMessage For="@(() => settings.Frequency)" class="text-rose-300 text-xs text-center font-medium" />
+            </div>
 
-        </div>
+            <div class="flex flex-col items-center mb-2">
+                <p>Quality</p>
+                <select @bind=qualitySelection class="text-center text-sm text-gray-500 outline-none disabled:opacity-50">
+                    <option value="standard">Standard (11 kHz, 16-bit)</option>
+                    <option value="studio">Studio (44.1 kHz, float)</option>
+                </select>
+            </div>
+
+            <label class="flex items-center gap-2 mb-2 text-sm">
+                <input type="checkbox" @bind=fadeOn/>
+                Fade edges
+            </label>
+        </fieldset>
+
         <div class="flex flex-col items-center">
-            <button @onclick=@(async() => await CloseSectionAsync()) class="bg-black text-white font-medium rounded-lg p-2 mt-10 w-1/2 text-center">Save</button>
+            <button class="bg-black text-white font-medium rounded-lg p-2 mt-4 w-1/2 text-center">Save</button>
         </div>
     </EditForm>
 
@@ -44,37 +75,104 @@
 
     [Inject] private MorseSettings MorseSettings { get; set; } = default!;
 
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
     #endregion
 
     FluentValidationValidator? validator;
     #region Fields
 
+    const string StorageKey = "araratmorse.customSound";
+
     Settings settings = new();
+    string selectedPreset = AraratMorse.State.SoundPreset.CustomName;
+    string qualitySelection = "standard";
+    bool fadeOn = true;
+
+    bool IsCustom => selectedPreset == AraratMorse.State.SoundPreset.CustomName;
 
     bool IsOpened => State.ActivePanel == Panel.Settings;
+
+    record CustomSoundSettings(int CharSpeed, int WordSpeed, double Frequency, int SampleRate, int Channels,
+        int BitDepth, double EdgeMilliseconds);
 
     #endregion
     #region Methods
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        settings.CharSpeed = MorseSettings.CharSpeed;
-        settings.WordSpeed = MorseSettings.WordSpeed;
-        settings.Frequency = MorseSettings.Frequency;
+        await RestoreCustomFromStorageAsync();
+        SyncFormFromSettings();
 
         State.Changed += HandleStateChanged;
     }
 
+    async Task RestoreCustomFromStorageAsync()
+    {
+        var json = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+        if (string.IsNullOrEmpty(json))
+            return;
+
+        try
+        {
+            var saved = JsonSerializer.Deserialize<CustomSoundSettings>(json);
+            if (saved is null)
+                return;
+
+            var format = new AudioFormat(saved.SampleRate, saved.Channels, (AudioBitDepth)saved.BitDepth,
+                saved.EdgeMilliseconds);
+            MorseSettings.ApplyCustom(saved.CharSpeed, saved.WordSpeed, saved.Frequency, format);
+        }
+        catch (JsonException)
+        {
+            // corrupt/old localStorage value — ignore and keep the defaults
+        }
+    }
+
+    void SyncFormFromSettings()
+    {
+        settings.CharSpeed = MorseSettings.CharSpeed;
+        settings.WordSpeed = MorseSettings.WordSpeed;
+        settings.Frequency = MorseSettings.Frequency;
+        selectedPreset = MorseSettings.PresetName;
+        qualitySelection = MorseSettings.Format.BitDepth == AudioBitDepth.Float32 ? "studio" : "standard";
+        fadeOn = MorseSettings.Format.EdgeMilliseconds > 0;
+    }
+
     void HandleStateChanged() => StateHasChanged();
+
+    void SelectPreset(AraratMorse.State.SoundPreset preset)
+    {
+        MorseSettings.ApplyPreset(preset);
+        SyncFormFromSettings();
+    }
+
+    void SelectCustom() => selectedPreset = AraratMorse.State.SoundPreset.CustomName;
 
     async ValueTask CloseSectionAsync()
     {
-        if (await ValidateAsync())
+        if (!IsCustom)
         {
-            //If validation result was true, then update the settings
-            MorseSettings.Update(settings.CharSpeed, settings.WordSpeed, settings.Frequency);
+            // A named preset was already applied to MorseSettings the moment it was picked.
             State.ClosePanel();
+            return;
         }
+
+        if (!await ValidateAsync())
+            return;
+
+        var baseFormat = qualitySelection == "studio"
+            ? AraratMorse.State.SoundPreset.Studio.Format
+            : AudioFormat.Default;
+        var format = baseFormat with { EdgeMilliseconds = fadeOn ? 5 : 0 };
+
+        MorseSettings.ApplyCustom(settings.CharSpeed, settings.WordSpeed, settings.Frequency, format);
+
+        var toSave = new CustomSoundSettings(settings.CharSpeed, settings.WordSpeed, settings.Frequency,
+            format.SampleRate, format.Channels, (int)format.BitDepth, format.EdgeMilliseconds);
+        await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, JsonSerializer.Serialize(toSave));
+
+        State.ClosePanel();
     }
 
     async ValueTask<bool> ValidateAsync() => (await validator!.ValidateAsync(option => option.IncludeAllRuleSets()));

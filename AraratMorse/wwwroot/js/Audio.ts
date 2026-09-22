@@ -1,236 +1,126 @@
-﻿namespace AraratMorse {
-    interface ICanvas {
-        canvas: HTMLCanvasElement | null;
-        canvasContext: CanvasRenderingContext2D | null;
+namespace AraratMorse {
 
+    interface PlayheadState {
+        rafId: number | null;
+        audio: HTMLAudioElement;
+        onPlay: () => void;
     }
 
-    interface IPlayBackInfo {
-        startedAt: number;
-        pausedAt: number;
-    }
+    class AudioManager {
+        blobUrls: Map<string, string> = new Map();
+        playheads: Map<string, PlayheadState> = new Map();
 
-    interface IAudioConfig {
-        canvas: ICanvas | null;
-        playbackInfo: IPlayBackInfo;
-        audioElement: HTMLAudioElement;
-
-        initAudio(): void;
-        play(): void;
-        pause(): void;
-        visualize(): void;
-        stop(): void;
-
-    }
-
-    enum AudioAction {
-        Initial,
-        Playing,
-        Pause,
-        Stop
-    }
-
-    class AudioManager implements IAudioConfig {
-        canvas: ICanvas;
-        audioElement: HTMLAudioElement;
-        playbackInfo: IPlayBackInfo;
-        playBtn: HTMLButtonElement;
-        pauseBtn: HTMLButtonElement;
-        stopBtn: HTMLButtonElement;
-
-        audioContext: AudioContext | null = null;
-        sourceNode: MediaElementAudioSourceNode | null = null;
-        analyser: AnalyserNode | null = null;
-
-        constructor() {
-            this.canvas = {canvas: null, canvasContext: null};
-            this.playbackInfo = {startedAt: 0, pausedAt: 0};
+        getAudio(audioId: string): HTMLAudioElement | null {
+            return document.getElementById(audioId) as HTMLAudioElement | null;
         }
 
-        setBtnsStyles(action: AudioAction): void {
-            switch (action) {
-                case AudioAction.Initial:
-                    this.playBtn.classList.remove("text-green-300");
-                    this.playBtn.classList.add("text-green-600");
+        setSource(audioId: string, bytes: Uint8Array): void {
+            this.revokeSource(audioId);
 
-                    this.pauseBtn.classList.remove("text-gray-600");
-                    this.pauseBtn.classList.add("text-gray-300");
+            const blob = new Blob([bytes], {type: "audio/wav"});
+            const url = URL.createObjectURL(blob);
+            this.blobUrls.set(audioId, url);
 
-                    this.stopBtn.classList.remove("text-rose-600");
-                    this.stopBtn.classList.add("text-rose-300");
+            const audio = this.getAudio(audioId);
+            if (audio) audio.src = url;
+        }
 
-                    this.playBtn.disabled = false;
-                    this.pauseBtn.disabled = true;
-                    this.stopBtn.disabled = true;
-
-                    break;
-                case AudioAction.Playing:
-                    this.playBtn.classList.remove("text-green-600");
-                    this.playBtn.classList.add("text-green-300");
-
-                    this.pauseBtn.classList.remove("text-gray-300");
-                    this.pauseBtn.classList.add("text-gray-600");
-
-                    this.stopBtn.classList.remove("text-rose-300");
-                    this.stopBtn.classList.add("text-rose-600");
-
-                    this.playBtn.disabled = true;
-                    this.pauseBtn.disabled = false;
-                    this.stopBtn.disabled = false;
-
-                    break;
-                case AudioAction.Pause:
-                    this.playBtn.classList.remove("text-green-300");
-                    this.playBtn.classList.add("text-green-600");
-
-                    this.pauseBtn.classList.remove("text-gray-600");
-                    this.pauseBtn.classList.add("text-gray-300");
-
-                    this.playBtn.disabled = false;
-                    this.pauseBtn.disabled = true;
-                    this.stopBtn.disabled = false;
-
-                    break;
-
-                case AudioAction.Stop:
-                    this.playBtn.classList.remove("text-green-300");
-                    this.playBtn.classList.add("text-green-600");
-
-                    this.pauseBtn.classList.remove("text-gray-600");
-                    this.pauseBtn.classList.add("text-gray-300");
-
-                    this.stopBtn.classList.remove("text-rose-600");
-                    this.stopBtn.classList.add("text-rose-300");
-
-                    this.playBtn.disabled = false;
-                    this.pauseBtn.disabled = true;
-                    this.stopBtn.disabled = true;
-
-                    break;
-
-                default:
-                    console.log("Unsupported action.");
+        revokeSource(audioId: string): void {
+            const url = this.blobUrls.get(audioId);
+            if (url) {
+                URL.revokeObjectURL(url);
+                this.blobUrls.delete(audioId);
             }
         }
 
-        async download(name: string): Promise<void> {
-            const res = await fetch(this.audioElement.src);
-            const buffer = await res.arrayBuffer();
+        play(audioId: string): void {
+            this.getAudio(audioId)?.play();
+        }
 
-            const blob = new Blob([buffer], {type: "audio/wav"});
-            const url = URL.createObjectURL(blob);
+        pause(audioId: string): void {
+            this.getAudio(audioId)?.pause();
+        }
 
-            const a = document.createElement('a');
+        stop(audioId: string): void {
+            const audio = this.getAudio(audioId);
+            if (!audio) return;
+            audio.pause();
+            audio.currentTime = 0;
+        }
+
+        download(audioId: string, name: string): void {
+            const url = this.blobUrls.get(audioId);
+            if (!url) return;
+
+            const a = document.createElement("a");
             a.href = url;
             a.download = name;
 
             document.body.appendChild(a);
-
             a.click();
-
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
         }
 
-        initAudio(): void {
-            try {
-                this.canvas.canvas = document.getElementById('soundVisualizer') as HTMLCanvasElement;
-                this.audioElement = document.getElementById("audio") as HTMLAudioElement;
+        // Moves a playhead element left-to-right in step with audio.currentTime, and (when a
+        // timeline container is given) toggles a highlight on whichever .timeline-char sits
+        // under it — all without a per-frame round trip to Blazor.
+        attachPlayhead(audioId: string, playheadId: string, timelineContainerId: string | null): void {
+            this.detachPlayhead(playheadId);
 
-                if (this.canvas) {
-                    this.canvas.canvasContext = this.canvas.canvas.getContext('2d');
-                    this.resizeCanvas();
-                    window.addEventListener('resize', () => this.resizeCanvas());
+            const audio = this.getAudio(audioId);
+            const playhead = document.getElementById(playheadId);
+            if (!audio || !playhead) return;
 
-                    this.playBtn = document.getElementById("playBtn") as HTMLButtonElement;
-                    this.pauseBtn = document.getElementById("pauseBtn") as HTMLButtonElement;
-                    this.stopBtn = document.getElementById("stopBtn") as HTMLButtonElement;
+            const container = timelineContainerId ? document.getElementById(timelineContainerId) : null;
+            const chars = container
+                ? Array.from(container.querySelectorAll<HTMLElement>(".timeline-char"))
+                : [];
 
-                    this.audioElement.onended = () => this.setBtnsStyles(AudioAction.Initial);
-                    this.audioElement.onplaying = () => this.setBtnsStyles(AudioAction.Playing);
-                    this.audioElement.onpause = () => this.setBtnsStyles(AudioAction.Pause);
+            const state: PlayheadState = {rafId: null, audio, onPlay: () => {
+            }};
 
-                    if (!this.audioContext) {
-                        this.audioContext = new AudioContext();
-                        this.sourceNode = this.audioContext.createMediaElementSource(this.audioElement);
-                        this.analyser = this.audioContext.createAnalyser();
+            const step = () => {
+                const ratio = audio.duration > 0 ? audio.currentTime / audio.duration : 0;
+                const clamped = Math.min(1, Math.max(0, ratio));
+                playhead.style.left = `${clamped * 100}%`;
 
-                        this.sourceNode.connect(this.analyser);
-                        this.analyser.connect(this.audioContext.destination);
-
-                        this.analyser.fftSize = 256;
-                    }
-                }
-            } catch (error) {
-                console.error("Could not init the audio", error);
-            }
-        }
-
-        resizeCanvas(): void {
-            const parent = this.canvas.canvas?.parentElement;
-            if (parent) {
-                this.canvas.canvas!.width = parent.clientWidth;
-                this.canvas.canvas!.height = parent.clientHeight;
-            }
-        }
-
-        pause(): void {
-            this.audioElement.pause();
-        }
-
-        play() {
-            this.audioElement.play();
-            this.visualize();
-        }
-
-        stop(): void {
-            this.audioElement.pause();
-            this.setBtnsStyles(AudioAction.Stop);
-            this.audioElement.currentTime = 0;
-        }
-
-        visualize(): void {
-            if (!this.analyser || !this.canvas.canvas || !this.canvas.canvasContext) return;
-
-            const bufferLength = this.analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-            const canvas = this.canvas.canvas;
-            const canvasContext = this.canvas.canvasContext;
-            const WIDTH = canvas.width;
-            const HEIGHT = canvas.height;
-
-            canvasContext.clearRect(0, 0, WIDTH, HEIGHT);
-
-            const draw = () => {
-                this.analyser!.getByteFrequencyData(dataArray);
-                canvasContext.fillStyle = 'black';
-                canvasContext.fillRect(0, 0, WIDTH, HEIGHT);
-
-                const barWidth = (WIDTH / bufferLength) * 2.5;
-                let x = 0;
-
-                for (let i = 0; i < bufferLength; i++) {
-                    const frequency = i / bufferLength;
-                    const barHeight = dataArray[i] * 2;
-                    const darkShade = Math.floor(5 * frequency);
-                    canvasContext.fillStyle = `rgb(${255 - darkShade}, ${255 - darkShade}, ${255 - darkShade})`;
-                    canvasContext.fillRect(x, HEIGHT - barHeight, barWidth, barHeight);
-                    x += barWidth + 1;
+                for (const el of chars) {
+                    const start = parseFloat(el.dataset.start || "0");
+                    const end = parseFloat(el.dataset.end || "0");
+                    el.classList.toggle("bg-yellow-400/30", clamped >= start && clamped < end);
                 }
 
-                requestAnimationFrame(draw);
+                state.rafId = (!audio.paused && !audio.ended) ? requestAnimationFrame(step) : null;
             };
-            draw();
+
+            state.onPlay = () => {
+                if (state.rafId === null) state.rafId = requestAnimationFrame(step);
+            };
+
+            audio.addEventListener("play", state.onPlay);
+            this.playheads.set(playheadId, state);
+
+            step();
+        }
+
+        detachPlayhead(playheadId: string): void {
+            const state = this.playheads.get(playheadId);
+            if (!state) return;
+
+            if (state.rafId !== null) cancelAnimationFrame(state.rafId);
+            state.audio.removeEventListener("play", state.onPlay);
+            this.playheads.delete(playheadId);
+        }
+
+        disposePlayer(audioId: string, playheadIds: string[]): void {
+            for (const id of playheadIds) this.detachPlayhead(id);
+            this.revokeSource(audioId);
         }
     }
+
     export function Load(): void {
         window['araratMorse'] = new AudioManager();
-
     }
 }
 
 AraratMorse.Load();
-
-
-
-

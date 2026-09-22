@@ -1,0 +1,36 @@
+@using System.Globalization
+
+<div class="relative w-full h-full bg-black rounded-lg overflow-hidden">
+    <svg viewBox="0 0 @Columns 100" preserveAspectRatio="none" class="w-full h-full">
+        @for (var i = 0; i < _peaks.Length; i++)
+        {
+            var (min, max) = _peaks[i];
+            var y = (50 - max * 50).ToString(CultureInfo.InvariantCulture);
+            var height = Math.Max(0.5, (max - min) * 50).ToString(CultureInfo.InvariantCulture);
+            <rect x="@i" y="@y" width="1" height="@height" fill="white"/>
+        }
+    </svg>
+
+    <div id="@PlayheadId" class="absolute top-0 bottom-0 w-0.5 bg-rose-500 pointer-events-none" style="left:0%"></div>
+</div>
+
+@code {
+
+    [Parameter, EditorRequired] public string Id { get; set; } = default!;
+
+    [Parameter] public byte[]? WavBytes { get; set; }
+
+    [Parameter] public int Columns { get; set; } = 200;
+
+    public string PlayheadId => $"{Id}-playhead";
+
+    (float Min, float Max)[] _peaks = [];
+
+    protected override void OnParametersSet()
+    {
+        _peaks = WavBytes is { Length: > 0 }
+            ? AraratMorse.State.WavSamples.Downsample(AraratMorse.State.WavSamples.Read(WavBytes), Columns)
+            : [];
+    }
+
+}

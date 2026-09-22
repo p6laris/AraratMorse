@@ -1,0 +1,120 @@
+@using System.Globalization
+@using MorseSharp
+
+<div id="@TrackId" class="relative w-full h-10 bg-gray-900 rounded flex items-stretch overflow-hidden">
+    @foreach (var item in _items)
+    {
+        @if (item.IsGap)
+        {
+            <div class="h-full" style="width:@(item.WidthPercent.ToString(CultureInfo.InvariantCulture))%"></div>
+        }
+        else
+        {
+            <div class="timeline-char h-full flex gap-0.5 px-0.5 transition-colors duration-100 @(IsActive(item) ? "bg-yellow-400/30" : "")"
+                 data-start="@item.Start.ToString(CultureInfo.InvariantCulture)"
+                 data-end="@item.End.ToString(CultureInfo.InvariantCulture)"
+                 style="width:@(item.WidthPercent.ToString(CultureInfo.InvariantCulture))%">
+                @foreach (var mark in item.Marks)
+                {
+                    <div class="h-full rounded-sm @(mark.KeyDown ? "bg-white" : "bg-transparent")"
+                         style="width:@(mark.WidthPercent.ToString(CultureInfo.InvariantCulture))%"></div>
+                }
+            </div>
+        }
+    }
+
+    <div id="@PlayheadId" class="absolute top-0 bottom-0 w-0.5 bg-rose-500 pointer-events-none"
+         style="left:@((PlayheadRatio ?? 0).ToString(CultureInfo.InvariantCulture))%"></div>
+</div>
+
+@code {
+
+    [Parameter, EditorRequired] public string Id { get; set; } = default!;
+
+    [Parameter] public MorseElementSequence? Sequence { get; set; }
+
+    /// <summary>
+    /// Playhead position as a 0-100 percentage. When set (e.g. driven element-by-element from a
+    /// light loop), the playhead and active-character highlight render straight from this value.
+    /// When left null, a JS-driven sync (audio.currentTime based) is expected to move the
+    /// playhead and toggle the highlight itself.
+    /// </summary>
+    [Parameter] public double? PlayheadRatio { get; set; }
+
+    public string TrackId => $"{Id}-track";
+    public string PlayheadId => $"{Id}-playhead";
+
+    record Mark(double WidthPercent, bool KeyDown);
+
+    record Item(bool IsGap, double WidthPercent, double Start, double End, List<Mark> Marks);
+
+    List<Item> _items = [];
+
+    protected override void OnParametersSet() => BuildItems();
+
+    bool IsActive(Item item) =>
+        PlayheadRatio is { } ratio && ratio / 100 >= item.Start && ratio / 100 < item.End;
+
+    void BuildItems()
+    {
+        _items = [];
+
+        if (Sequence is not { } sequence)
+            return;
+
+        var totalMs = sequence.Duration.TotalMilliseconds;
+        if (totalMs <= 0)
+            return;
+
+        List<(double DurationMs, bool KeyDown)>? currentChar = null;
+        var charStartMs = 0d;
+        var elapsedMs = 0d;
+
+        void FlushChar(double endMs)
+        {
+            if (currentChar is null)
+                return;
+
+            // Mark widths are percentages of the character group's own box (CSS % is relative
+            // to the parent), so they're only knowable once the character's total duration is.
+            var charDurationMs = endMs - charStartMs;
+            var marks = currentChar
+                .Select(m => new Mark(m.DurationMs / charDurationMs * 100, m.KeyDown))
+                .ToList();
+
+            _items.Add(new Item(false, charDurationMs / totalMs * 100, charStartMs / totalMs,
+                endMs / totalMs, marks));
+            currentChar = null;
+        }
+
+        foreach (var element in sequence)
+        {
+            var durationMs = element.Duration.TotalMilliseconds;
+
+            switch (element.Kind)
+            {
+                case MorseElementKind.Dot:
+                case MorseElementKind.Dash:
+                case MorseElementKind.ElementGap:
+                    if (currentChar is null)
+                    {
+                        currentChar = [];
+                        charStartMs = elapsedMs;
+                    }
+                    currentChar.Add((durationMs, element.KeyDown));
+                    break;
+                case MorseElementKind.CharGap:
+                case MorseElementKind.WordGap:
+                    FlushChar(elapsedMs);
+                    _items.Add(new Item(true, durationMs / totalMs * 100, elapsedMs / totalMs,
+                        (elapsedMs + durationMs) / totalMs, []));
+                    break;
+            }
+
+            elapsedMs += durationMs;
+        }
+
+        FlushChar(elapsedMs);
+    }
+
+}
