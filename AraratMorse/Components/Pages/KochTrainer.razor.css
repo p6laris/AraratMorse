@@ -1,0 +1,12 @@
+details.settings-accordion > summary {
+    list-style: none;
+}
+
+details.settings-accordion > summary::-webkit-details-marker {
+    display: none;
+}
+
+details.settings-accordion > summary::marker {
+    display: none;
+    content: "";
+}

@@ -104,11 +104,27 @@
     /// responsible for feature-detecting support and only offering this when available.</summary>
     [Parameter] public bool TorchEnabled { get; set; }
 
+    /// <summary>Overrides the injected <see cref="MorseSettings"/> speeds/tone/format — for
+    /// callers (like the Koch trainer) that need their own Farnsworth pacing independent of the
+    /// shared converter settings. Any left null fall back to the injected settings.</summary>
+    [Parameter] public int? CharSpeedOverride { get; set; }
+
+    [Parameter] public int? WordSpeedOverride { get; set; }
+
+    [Parameter] public double? FrequencyOverride { get; set; }
+
+    [Parameter] public AudioFormat? FormatOverride { get; set; }
+
     [Inject] private State.MorseService MorseService { get; set; } = default!;
 
     [Inject] private State.MorseSettings Settings { get; set; } = default!;
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    int EffectiveCharSpeed => CharSpeedOverride ?? Settings.CharSpeed;
+    int EffectiveWordSpeed => WordSpeedOverride ?? Settings.WordSpeed;
+    double EffectiveFrequency => FrequencyOverride ?? Settings.Frequency;
+    AudioFormat EffectiveFormat => FormatOverride ?? Settings.Format;
 
     readonly string _instanceId = $"player-{Guid.NewGuid():N}";
     string _soundId => $"{_instanceId}-audio";
@@ -180,8 +196,8 @@
         {
             if (Kind is PlayerKind.Sound or PlayerKind.Both)
             {
-                _wavBytes = MorseService.GetWav(MorseText, Language, Settings.CharSpeed, Settings.WordSpeed,
-                    Settings.Frequency, Settings.Format);
+                _wavBytes = MorseService.GetWav(MorseText, Language, EffectiveCharSpeed, EffectiveWordSpeed,
+                    EffectiveFrequency, EffectiveFormat);
                 _needsAudioPush = true;
             }
 
@@ -189,7 +205,7 @@
 
             if (Kind is not PlayerKind.Sound || ShowTimeline)
             {
-                _sequence = MorseService.GetElements(MorseText, Language, Settings.CharSpeed, Settings.WordSpeed);
+                _sequence = MorseService.GetElements(MorseText, Language, EffectiveCharSpeed, EffectiveWordSpeed);
 
                 if (Kind is PlayerKind.Light or PlayerKind.Both)
                 {
@@ -240,7 +256,7 @@
                 // Fresh start: MorseSharp's own PlayAsync paces this in real time with drift
                 // compensation, and switches the light off before the task observes cancellation.
                 await foreach (var element in MorseService.PlayLightElements(MorseText, Language,
-                                   Settings.CharSpeed, Settings.WordSpeed, token))
+                                   EffectiveCharSpeed, EffectiveWordSpeed, token))
                 {
                     ApplyLightElement(element);
                 }

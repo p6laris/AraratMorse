@@ -344,28 +344,76 @@ Learning and practice. This is the biggest win from 6.x and deserves to be a rea
 single page. Every question embeds its own inline `MorsePlayer` from Phase 4, so a drill can be
 heard, watched on the timeline, or flashed as light, per question, without leaving the card:
 
-- [ ] Koch course: pick a level (1 to `Koch.MaxLevel`), the app plays `Koch.Generate(level,
+- [x] Koch course: pick a level (1 to `Koch.MaxLevel`), the app plays `Koch.Generate(level,
       groups)` at full character speed, user types what they heard, `Koch.Score` grades it and
-      `ClearsThreshold` decides whether the next character unlocks.
-- [ ] Meet-the-character step: when a level unlocks a new character, play it alone a few times
-      with the timeline visible before it enters the drills.
-- [ ] Per-question embedded player: replay button, timeline reveal after answering (so the shape
+      `ClearsThreshold` decides whether the next character unlocks. (New `/koch` page,
+      `KochTrainer.razor`. Level 1 is skipped — a single character can't be copy-tested — so the
+      app starts at level 2 like the MorseSharp README's own description of the method
+      ("starting with two characters"). A "Practicing" level picker lets the learner drill any
+      already-unlocked level without it counting toward advancing past the real frontier — only
+      clearing the threshold while practicing at the frontier itself advances `KochStats.Level`.
+      `Koch.Generate`'s output is letters, not Morse — it has to be run through
+      `MorseService.Encode` before it can be handed to `MorsePlayer`, which was the first bug this
+      surfaced.)
+- [x] Meet-the-character step: when a level unlocks a new character, play it alone a few times
+      with the timeline visible before it enters the drills. (Shown automatically on first load
+      and right after a level-up. It plays the single new character once via the same inline
+      `MorsePlayer`, replay is the same Play button. Only the newest character gets this step —
+      the very first level's second character (the pool's second starting letter) doesn't, a
+      minor gap accepted for scope.)
+- [x] Per-question embedded player: replay button, timeline reveal after answering (so the shape
       of what was sent is visible next to what the user typed), optional light mode for visual
-      learners. Answer first, then reveal; no peeking during play.
-- [ ] Per-character stats from `Koch.Score` results: accuracy per character and a confusion list
-      (typed R when it was K, and so on), stored in localStorage.
-- [ ] Weighted drills: generate groups app-side from the unlocked pool, biased toward the
+      learners. Answer first, then reveal; no peeking during play. (`ShowTimeline="false"` during
+      the drill itself, `"true"` on reveal — reusing `MorsePlayer`'s own Play button as "replay".
+      A "Light mode" checkbox switches both the drill and reveal player's `Kind` between
+      Sound and Light.)
+- [x] Per-character stats from `Koch.Score` results: accuracy per character and a confusion list
+      (typed R when it was K, and so on), stored in localStorage. (`KochStats` tracks
+      `(Correct, Total)` per character and a `"sent>typed"` confusion count, computed by
+      replicating `Koch.Score`'s own positional/case-insensitive/space-stripped comparison — kept
+      in sync with the library's own grading so the aggregate score and the per-character
+      breakdown never disagree. Persisted as JSON under `araratmorse.kochStats`.)
+- [x] Weighted drills: generate groups app-side from the unlocked pool, biased toward the
       characters the stats say are weakest, and still grade with `Koch.Score`. `Koch.Generate`
-      stays for the standard uniform drills.
-- [ ] Lesson settings per course: character speed, Farnsworth gap speed, group size and count,
-      tone preset. Farnsworth here is the whole point of the setting existing.
-- [ ] Session summary at the end of a run: accuracy, characters gained, what to drill next, and a
-      streak counter for coming back daily.
+      stays for the standard uniform drills. (A "Weighted drills" checkbox switches
+      `GenerateLesson` between `Koch.Generate` and an app-side weighted sampler over the unlocked
+      pool; both paths still grade through `Koch.Score`.)
+- [x] Lesson settings per course: character speed, Farnsworth gap speed, group size and count,
+      tone preset. Farnsworth here is the whole point of the setting existing. (A "Lesson
+      settings" accordion — char speed, word speed, group size, group count, and a tone-preset
+      picker reusing Phase 4's `SoundPreset.All`. These feed `MorsePlayer`'s new
+      `CharSpeedOverride`/`WordSpeedOverride`/`FrequencyOverride` parameters, added specifically
+      so a page like this can use its own pacing independent of the shared converter
+      `MorseSettings`.)
+- [x] Session summary at the end of a run: accuracy, characters gained, what to drill next, and a
+      streak counter for coming back daily. (Session-only accuracy tracked separately from the
+      persisted per-character stats; "what to drill next" is `KochStats.WeakestCharacter` over the
+      current pool; the streak increments once per calendar day via `RecordPracticeSession`,
+      verified incrementing correctly across a session in the browser.)
 - [ ] Callsign and QSO drills as a second course: play `Callsign.Next()` or `Qso.Generate()`
       transmission by transmission, each in its own question card with its own player, reveal
       after each attempt. Real-traffic shapes (RST, Q-codes, `<SK>`) are the syllabus here.
+      (Not started — a separate PR, per this phase's own "independent PRs" framing.)
 - [ ] Reading course (light instead of sound): same drills with the `MorsePlayer` in light mode,
-      for learning to read a blinking lamp rather than copy by ear.
+      for learning to read a blinking lamp rather than copy by ear. (Not started as a standalone
+      course; the Koch course's own "Light mode" checkbox covers the same `MorsePlayer` capability
+      but isn't a dedicated reading-focused course.)
+
+**Unplanned but required — a real design bug, not scope creep:** `tailwind.config.js` had
+`boxShadow`, `keyframes`, and `animation` declared directly under `theme` instead of under
+`theme.extend`, which made them *replace* Tailwind's defaults instead of add to them. That silently
+killed every default shadow/keyframe/animation utility (`shadow-sm`, `shadow-md`, etc.) app-wide —
+not something introduced this phase, but the first time this session actually built new UI dense
+enough to expose it. Fixed by moving those three keys into `extend`. Separately, `wwwroot/css/app.css`
+turned out to be a static, pre-built file — there's no Tailwind build wired into `dotnet build`/`dotnet
+run`, so any class used in a `.razor` file that wasn't already in that checked-in CSS had zero effect
+in the browser. `npm install` + `npx tailwindcss -i Style/style.css -o wwwroot/css/app.css --minify`
+regenerates it from source; verified after regenerating that every existing page (Home, About,
+Settings, Sound/Light panels) still renders identically, and that the custom `shadow-top`/`blink`
+utilities survived the config fix. This explains why the Koch page's first pass looked visually
+broken despite reasonable-looking Tailwind class names in the markup — most of the newer utility
+classes (`shadow-sm`, `rounded-2xl`, `accent-black`, `group-open:*`, `open:*`, etc.) simply weren't
+in the compiled CSS yet.
 
 Decoding received audio:
 

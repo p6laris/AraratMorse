@@ -1,0 +1,375 @@
+@page "/koch"
+@using System.Text
+@using System.Text.Json
+@using AraratMorse.Components.UI.Player
+@using MorseSharp
+@implements IDisposable
+
+<main class="flex flex-col font-sans">
+    <h1 class="text-white text-2xl sm:text-3xl lg:text-4xl font-black text-center lg:mx-auto outline-none mb-6">
+        Koch Trainer
+    </h1>
+
+    <div class="flex flex-col gap-6 items-stretch bg-white rounded-2xl shadow-sm w-full lg:w-1/2 lg:mx-auto text-black p-6 sm:p-8">
+
+        @* Status row *@
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full">
+                    Level @Stats.Level / @Koch.MaxLevel
+                </span>
+                <label class="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-medium pl-3 pr-1.5 py-1.5 rounded-full">
+                    Practicing
+                    <input type="number" min="2" max="@Stats.Level" @bind=_practiceLevel @bind:after="OnPracticeLevelChanged"
+                           class="w-9 bg-white border border-gray-300 rounded-full px-1 py-0.5 text-center text-black text-xs
+                                  focus:outline-none focus:ring-2 focus:ring-black/10"/>
+                </label>
+                <span class="inline-flex items-center bg-gray-100 text-gray-700 text-xs font-mono font-medium px-3 py-1.5 rounded-full tracking-wider">
+                    @Pool.ToString()
+                </span>
+            </div>
+            <span class="inline-flex items-center bg-amber-50 text-amber-700 text-xs font-medium px-3 py-1.5 rounded-full">
+                Streak: @Stats.StreakDays day@(Stats.StreakDays == 1 ? "" : "s")
+            </span>
+        </div>
+
+        @* Lesson settings *@
+        <details class="settings-accordion group w-full rounded-xl border border-gray-200 open:bg-gray-50/50">
+            <summary class="flex items-center justify-between cursor-pointer select-none px-4 py-3 text-sm font-medium text-gray-700">
+                Lesson settings
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                     class="text-gray-400 transition-transform group-open:rotate-180">
+                    <path fill="currentColor" d="M12 14.975q-.2 0-.375-.062T11.3 14.7l-4.6-4.6q-.275-.275-.275-.7t.275-.7q.275-.275.7-.275t.7.275l3.9 3.9l3.9-3.9q.275-.275.7-.275t.7.275q.275.275.275.7t-.275.7l-4.6 4.6q-.15.15-.325.213t-.375.062Z"/>
+                </svg>
+            </summary>
+            <div class="px-4 pb-4 pt-1 border-t border-gray-200">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Char speed</span>
+                        <input type="number" @bind=_charSpeed
+                               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"/>
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Word speed</span>
+                        <input type="number" @bind=_wordSpeed
+                               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"/>
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Group size</span>
+                        <input type="number" @bind=_groupSize
+                               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"/>
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Groups</span>
+                        <input type="number" @bind=_groupCount
+                               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"/>
+                    </label>
+                    <label class="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Tone</span>
+                        <select @bind=_tonePresetName
+                                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10">
+                            @foreach (var preset in SoundPreset.All)
+                            {
+                                <option value="@preset.Name">@preset.Name</option>
+                            }
+                        </select>
+                    </label>
+                </div>
+                <div class="flex flex-wrap gap-x-6 gap-y-2 mt-5">
+                    <label class="flex items-center gap-2 text-sm text-gray-700">
+                        <input type="checkbox" @bind=_weighted class="w-4 h-4 rounded border-gray-300 accent-black"/>
+                        Weighted drills
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-700">
+                        <input type="checkbox" @bind=_lightMode class="w-4 h-4 rounded border-gray-300 accent-black"/>
+                        Light mode
+                    </label>
+                </div>
+            </div>
+        </details>
+
+        @if (_stage == Stage.MeetCharacter)
+        {
+            <div class="flex flex-col items-center gap-5 w-full">
+                <p class="text-base text-gray-600">New character: <span class="text-4xl font-black text-black ml-1">@NewestChar</span></p>
+                <MorsePlayer @ref="_meetPlayer" MorseText="@NewestCharMorse" Language="Language.English"
+                             Kind="PlayerKind.Sound" Size="PlayerSize.Inline" ShowTimeline="true"
+                             CharSpeedOverride="_charSpeed" WordSpeedOverride="_wordSpeed" FrequencyOverride="_tone"/>
+                <button @onclick="StartDrilling"
+                        class="bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-xl py-3 w-full sm:w-1/2 text-center">
+                    Start drilling
+                </button>
+            </div>
+        }
+        else if (_stage == Stage.Drilling)
+        {
+            <div class="flex flex-col items-center gap-5 w-full">
+                <MorsePlayer @ref="_drillPlayer" MorseText="@_currentLessonMorse" Language="Language.English"
+                             Kind="@(_lightMode ? PlayerKind.Light : PlayerKind.Sound)" Size="PlayerSize.Inline"
+                             ShowTimeline="false"
+                             CharSpeedOverride="_charSpeed" WordSpeedOverride="_wordSpeed" FrequencyOverride="_tone"/>
+
+                <input @bind=_typed @bind:event="oninput" placeholder="Type what you heard..."
+                       class="bg-gray-50 border border-gray-200 w-full rounded-xl p-4 text-center uppercase tracking-[0.2em]
+                              text-lg focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-300" autocomplete="off"/>
+
+                <button @onclick="Submit"
+                        class="bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-xl py-3 w-full sm:w-1/2 text-center">
+                    Submit
+                </button>
+            </div>
+        }
+        else if (_stage == Stage.Revealed && _lastScore is { } score)
+        {
+            <div class="flex flex-col items-center gap-4 w-full">
+                <MorsePlayer MorseText="@_currentLessonMorse" Language="Language.English"
+                             Kind="@(_lightMode ? PlayerKind.Light : PlayerKind.Sound)" Size="PlayerSize.Inline"
+                             ShowTimeline="true"
+                             CharSpeedOverride="_charSpeed" WordSpeedOverride="_wordSpeed" FrequencyOverride="_tone"/>
+
+                <p class="text-lg font-medium text-center">
+                    @score.Correct/@score.Total &middot; @((score.Accuracy * 100).ToString("F0"))%
+                    @(score.ClearsThreshold ? " — cleared!" : "")
+                </p>
+
+                <div class="flex flex-wrap justify-center gap-1 font-mono text-lg break-all bg-gray-50 rounded-xl p-4 w-full">
+                    @foreach (var (sentChar, typedChar) in _comparison)
+                    {
+                        <span class="@(sentChar == typedChar ? "text-green-600" : "text-rose-500 line-through decoration-2")">@typedChar</span>
+                    }
+                </div>
+                <p class="text-xs text-gray-500 text-center break-all">Sent: @NormalizedLesson</p>
+
+                <div class="flex flex-col sm:flex-row gap-3 w-full">
+                    <button @onclick="NextRound"
+                            class="flex-1 bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-xl py-3 text-center">
+                        Next round
+                    </button>
+                    <button @onclick="FinishSession"
+                            class="flex-1 bg-gray-100 hover:bg-gray-200 transition-colors text-black font-medium rounded-xl py-3 text-center">
+                        Finish session
+                    </button>
+                </div>
+            </div>
+        }
+        else if (_stage == Stage.Summary)
+        {
+            <div class="flex flex-col items-center gap-2 w-full text-center">
+                <h3 class="text-2xl font-black mb-2">Session summary</h3>
+                <p class="text-gray-700">Accuracy this session: <span class="font-semibold text-black">@(_sessionTotal == 0 ? "-" : $"{(double) _sessionCorrect / _sessionTotal * 100:F0}%")</span></p>
+                <p class="text-gray-700">Level: <span class="font-semibold text-black">@_levelAtSessionStart &rarr; @Stats.Level</span></p>
+                @if (WeakestChar is { } weak)
+                {
+                    <p class="text-gray-700">Drill next: <span class="font-black text-black">@weak</span> (@((Stats.AccuracyFor(weak) * 100).ToString("F0"))% accurate)</p>
+                }
+                <p class="text-gray-700">Streak: <span class="font-semibold text-black">@Stats.StreakDays day@(Stats.StreakDays == 1 ? "" : "s")</span></p>
+                <button @onclick="StartNewSession"
+                        class="bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-xl py-3 mt-4 w-full sm:w-1/2 text-center">
+                    Practice again
+                </button>
+            </div>
+        }
+
+    </div>
+</main>
+
+@code {
+
+    enum Stage { MeetCharacter, Drilling, Revealed, Summary }
+
+    [Inject] private KochStats Stats { get; set; } = default!;
+
+    [Inject] private MorseService MorseService { get; set; } = default!;
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    const string StorageKey = "araratmorse.kochStats";
+
+    Stage _stage = Stage.Drilling;
+    string _currentLesson = "";
+    string _currentLessonMorse = "";
+    string _typed = "";
+    KochScore? _lastScore;
+    List<(char Sent, char Typed)> _comparison = [];
+
+    int _charSpeed = 20;
+    int _wordSpeed = 12;
+    int _groupSize = 5;
+    int _groupCount = 5;
+    string _tonePresetName = "Practice";
+    bool _weighted;
+    bool _lightMode;
+
+    int _practiceLevel = 2;
+    int _sessionCorrect;
+    int _sessionTotal;
+    int _levelAtSessionStart;
+
+    MorsePlayer? _meetPlayer;
+    MorsePlayer? _drillPlayer;
+
+    double _tone => SoundPreset.All.FirstOrDefault(p => p.Name == _tonePresetName)?.Frequency ?? 600;
+
+    ReadOnlySpan<char> Pool => Koch.Order[.._practiceLevel];
+    char NewestChar => Koch.Order[_practiceLevel - 1];
+    string NewestCharMorse => MorseService.Encode(NewestChar.ToString(), Language.English);
+    char? WeakestChar => Stats.WeakestCharacter(Pool);
+    string NormalizedLesson => new(_currentLesson.Where(c => !char.IsWhiteSpace(c)).Select(char.ToUpperInvariant).ToArray());
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RestoreStatsAsync();
+        _levelAtSessionStart = Stats.Level;
+        _lastLevelSeen = Stats.Level;
+        _practiceLevel = Stats.Level;
+        Stats.Changed += HandleStatsChanged;
+
+        _stage = Stage.MeetCharacter;
+        GenerateLesson();
+    }
+
+    void HandleStatsChanged() => StateHasChanged();
+
+    async Task RestoreStatsAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            if (!string.IsNullOrEmpty(json))
+            {
+                var snapshot = JsonSerializer.Deserialize<KochStats.Snapshot>(json);
+                if (snapshot is not null)
+                    Stats.LoadFrom(snapshot);
+            }
+        }
+        catch (JsonException)
+        {
+            // corrupt/old localStorage value — keep the defaults
+        }
+    }
+
+    async Task SaveStatsAsync()
+    {
+        var json = JsonSerializer.Serialize(Stats.ToSnapshot());
+        await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
+    }
+
+    void GenerateLesson()
+    {
+        _currentLesson = _weighted
+            ? GenerateWeightedLesson(Pool, _groupCount, _groupSize)
+            : Koch.Generate(_practiceLevel, _groupCount, _groupSize);
+        _currentLessonMorse = MorseService.Encode(_currentLesson, Language.English);
+        _typed = "";
+    }
+
+    static string GenerateWeightedLesson(ReadOnlySpan<char> pool, int groups, int groupSize)
+    {
+        var rng = Random.Shared;
+        var poolArray = pool.ToArray();
+        var sb = new StringBuilder();
+
+        for (var g = 0; g < groups; g++)
+        {
+            if (g > 0) sb.Append(' ');
+            for (var c = 0; c < groupSize; c++)
+                sb.Append(poolArray[rng.Next(poolArray.Length)]);
+        }
+
+        return sb.ToString();
+    }
+
+    void StartDrilling()
+    {
+        _stage = Stage.Drilling;
+    }
+
+    async Task Submit()
+    {
+        _lastScore = Koch.Score(_currentLesson, _typed);
+        RecordPerCharacterStats(_currentLesson, _typed);
+
+        _sessionCorrect += _lastScore.Value.Correct;
+        _sessionTotal += _lastScore.Value.Total;
+
+        BuildComparison();
+
+        // Only advance the real unlock frontier when practicing at it — reviewing an earlier
+        // level shouldn't skip characters the learner hasn't actually met yet.
+        if (_lastScore.Value.ClearsThreshold && _practiceLevel == Stats.Level && Stats.Level < Koch.MaxLevel)
+        {
+            Stats.SetLevel(Stats.Level + 1);
+            _practiceLevel = Stats.Level;
+        }
+
+        await SaveStatsAsync();
+        _stage = Stage.Revealed;
+    }
+
+    void OnPracticeLevelChanged()
+    {
+        _practiceLevel = Math.Clamp(_practiceLevel, 2, Stats.Level);
+        GenerateLesson();
+        _stage = Stage.Drilling;
+    }
+
+    void RecordPerCharacterStats(string sent, string typed)
+    {
+        var s = sent.Where(c => !char.IsWhiteSpace(c)).Select(char.ToUpperInvariant).ToArray();
+        var t = typed.Where(c => !char.IsWhiteSpace(c)).Select(char.ToUpperInvariant).ToArray();
+        var len = Math.Min(s.Length, t.Length);
+
+        for (var i = 0; i < len; i++)
+            Stats.RecordAttempt(s[i], t[i]);
+
+        for (var i = len; i < s.Length; i++)
+            Stats.RecordAttempt(s[i], '\0'); // nothing was typed for this one
+    }
+
+    void BuildComparison()
+    {
+        var s = NormalizedLesson;
+        var t = new string(_typed.Where(c => !char.IsWhiteSpace(c)).Select(char.ToUpperInvariant).ToArray());
+        var len = Math.Max(s.Length, t.Length);
+
+        _comparison = [];
+        for (var i = 0; i < len; i++)
+        {
+            var sentChar = i < s.Length ? s[i] : '\0';
+            var typedChar = i < t.Length ? t[i] : '_';
+            _comparison.Add((sentChar, typedChar));
+        }
+    }
+
+    void NextRound()
+    {
+        var wasNewLevel = Stats.Level != _lastLevelSeen;
+        _lastLevelSeen = Stats.Level;
+
+        GenerateLesson();
+        _stage = wasNewLevel ? Stage.MeetCharacter : Stage.Drilling;
+    }
+
+    int _lastLevelSeen = -1;
+
+    async Task FinishSession()
+    {
+        Stats.RecordPracticeSession();
+        await SaveStatsAsync();
+        _stage = Stage.Summary;
+    }
+
+    void StartNewSession()
+    {
+        _sessionCorrect = 0;
+        _sessionTotal = 0;
+        _levelAtSessionStart = Stats.Level;
+        _lastLevelSeen = Stats.Level;
+        _practiceLevel = Stats.Level;
+        GenerateLesson();
+        _stage = Stage.MeetCharacter;
+    }
+
+    public void Dispose() => Stats.Changed -= HandleStatsChanged;
+
+}
