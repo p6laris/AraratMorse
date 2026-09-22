@@ -1,6 +1,6 @@
 using AraratMorse.Components;
 using AraratMorse.Models;
-using ClipLazor.Extention;
+using ClipLazor.Extensions;
 using FluentValidation;
 using Fluxor;
 using Microsoft.AspNetCore.Components.Web;

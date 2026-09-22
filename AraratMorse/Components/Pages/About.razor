@@ -166,25 +166,20 @@
     }
 
 
-    private Dictionary<char, string> GetAlphabets()
+    private Dictionary<char, string> GetCharacters(Func<char, bool> predicate)
     {
-        return MorseCharacters.GetLanguageCharacter(languageState.Value.Language).Where(pair => char.IsLetter(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
+        return MorseAlphabet.ForLanguage(languageState.Value.Language).Characters
+            .Where(entry => predicate(entry.Character))
+            .ToDictionary(entry => entry.Character, entry => entry.Pattern);
     }
 
-    private Dictionary<char, string> GetNumbers()
-    {
-        return MorseCharacters.GetLanguageCharacter(languageState.Value.Language).Where(pair => char.IsNumber(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
-    }
+    private Dictionary<char, string> GetAlphabets() => GetCharacters(char.IsLetter);
 
-    private Dictionary<char, string> GetPunctuations()
-    {
-        return MorseCharacters.GetLanguageCharacter(languageState.Value.Language).Where(pair => char.IsPunctuation(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
-    }
+    private Dictionary<char, string> GetNumbers() => GetCharacters(char.IsNumber);
 
-    private Dictionary<char, string> GetSymbols()
-    {
-        return MorseCharacters.GetLanguageCharacter(languageState.Value.Language).Where(pair => char.IsSymbol(pair.Key)).ToDictionary(pair => pair.Key, pair => pair.Value);
-    }
+    private Dictionary<char, string> GetPunctuations() => GetCharacters(char.IsPunctuation);
+
+    private Dictionary<char, string> GetSymbols() => GetCharacters(char.IsSymbol);
 
     #endregion
 

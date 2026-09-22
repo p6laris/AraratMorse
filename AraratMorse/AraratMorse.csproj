@@ -1,28 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <ImplicitUsings>enable</ImplicitUsings>
+        <TargetFramework>net10.0</TargetFramework>
         <RunAOTCompilation>true</RunAOTCompilation>
     </PropertyGroup>
     <ItemGroup>
-        <Content Remove="C:\Users\Yunis Surchy\.nuget\packages\sirilazor\1.0.4\contentFiles\any\net8.0\Component\Interfaces\ISiriLazor.cs" />
-        <Content Remove="C:\Users\Yunus Surchy\.nuget\packages\chartjs.blazor.fork\2.0.2\contentFiles\any\netstandard2.1\wwwroot\ChartJsBlazorInterop.js" />
-        <Content Remove="C:\Users\Yunus Surchy\.nuget\packages\cliplazor\2.1.2\contentFiles\any\net9.0\wwwroot\clipboard.min.js" />
-        <Content Remove="..\..\..\.nuget\packages\cliplazor\2.1.21\contentFiles\any\net9.0\wwwroot\clipboard.min.js" />
-        <Content Remove="C:\Users\Yunus Surchy\.nuget\packages\cliplazor\3.0.1\contentFiles\any\net9.0\wwwroot\clipboard.min.js" />
-        <Content Remove="C:\Users\Yunus Surchy\.nuget\packages\cliplazor\3.0.2\contentFiles\any\net9.0\wwwroot\clipboard.min.js" />
-        <Content Remove="C:\Users\Yunus Surchy\.nuget\packages\cliplazor\3.0.2\contentFiles\any\net9.0\wwwroot\clipboard.min.js.map" />
-    </ItemGroup>
-    <ItemGroup>
         <PackageReference Include="Blazored.FluentValidation" Version="2.2.0" />
-        <PackageReference Include="ClipLazor" Version="3.0.2" />
-        <PackageReference Include="Fluxor.Blazor.Web" Version="6.6.0" />
-        <PackageReference Include="Fluxor.Blazor.Web.ReduxDevTools" Version="6.6.0" />
-        <PackageReference Include="MorseSharp" Version="4.1.4" />
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.3" />
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.3" />
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+        <PackageReference Include="ClipLazor" Version="4.0.0" />
+        <PackageReference Include="Fluxor.Blazor.Web" Version="6.11.0" />
+        <PackageReference Include="MorseSharp" Version="6.1.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.12" />
     </ItemGroup>
     <ItemGroup>
         <TypeScriptCompile Include="wwwroot\js\Audio.ts" />

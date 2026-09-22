@@ -120,7 +120,7 @@
                .ForLanguage(languageState!.Value.Language)
                .ToLight(theMorse!)
                .SetBlinkerOptions(settingState!.Value.CharSpeed, settingState!.Value.WordSpeed)
-               .DoBlinks(async (hasToBlink) => await DoBlinksAsync(hasToBlink, cancellationTokenSource.Token));
+               .DoBlinks(DoBlinksCallback, cancellationTokenSource.Token);
 
             }, this.cancellationTokenSource.Token);
 
@@ -170,18 +170,15 @@
         isPlaying = false;
 
     }
-    async ValueTask DoBlinksAsync(bool hasToBlink, CancellationToken cancellationToken)
+    void DoBlinksCallback(bool hasToBlink)
     {
-        if (cancellationToken.IsCancellationRequested)
-            return;
-
         /*
-        * If the Cancellation not requested, then in each iteration
-         * increase the offset by one and show whitish background in the div.
-         */
+        * Called on the captured synchronization context for each element;
+        * in each iteration increase the offset by one and show whitish background in the div.
+        */
         ++offset;
         isBlinking = hasToBlink;
-        await InvokeAsync(StateHasChanged);
+        StateHasChanged();
     }
     void CloseSection()
     {

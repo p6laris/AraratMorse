@@ -121,24 +121,20 @@
             //If it was text -> morse, then get the output and convert it.
             if (conversionState!.Value.IsEncoding)
             {
-                Morse.GetConverter()
+                soundByte = Morse.GetConverter()
                     .ForLanguage(languageState!.Value.Language)
                     .ToAudio(TranslationState!.Value.Output)
                     .SetAudioOptions(settingState!.Value.CharSpeed, settingState!.Value.WordSpeed, settingState!.Value.frequency)
-                    .GetBytes(out var spanByte);
-
-                soundByte = spanByte.ToArray();
+                    .GetBytes();
             }
             //Else convert it using the input which is the morse.
             else
             {
-                Morse.GetConverter()
+                soundByte = Morse.GetConverter()
                     .ForLanguage(languageState!.Value.Language)
                     .ToAudio(TranslationState!.Value.Input)
                     .SetAudioOptions(settingState!.Value.CharSpeed, settingState!.Value.WordSpeed, settingState!.Value.frequency)
-                    .GetBytes(out var spanByte);
-
-                soundByte = spanByte.ToArray();
+                    .GetBytes();
             }
 
             errorOccurred = false;
