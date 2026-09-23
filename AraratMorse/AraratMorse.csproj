@@ -12,6 +12,7 @@
     </ItemGroup>
     <ItemGroup>
         <TypeScriptCompile Include="wwwroot\js\Audio.ts" />
+        <TypeScriptCompile Include="wwwroot\js\Sheets.ts" />
     </ItemGroup>
     <ItemGroup>
         <None Include="wwwroot\css\app.css" />

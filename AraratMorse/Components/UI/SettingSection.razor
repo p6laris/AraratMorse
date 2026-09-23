@@ -4,9 +4,10 @@
 @implements IDisposable
 
 @* Overlay *@
-<div @onclick="@(async() => await CloseSectionAsync())" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
+<div @onclick="@(async() => await CloseSectionAsync())" data-sheet-overlay="settings" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
 
-<div class="fixed flex flex-col items-center bg-white font-sans font-thin top-0 right-0 z-40 w-64 h-screen overflow-y-auto transition-transform z-50 py-4 @(IsOpened ? "translate-x-0" : "translate-x-full")">
+<div data-sheet="settings" inert="@(!IsOpened)" tabindex="-1" role="dialog" aria-modal="true" aria-label="Settings"
+     class="fixed flex flex-col items-center bg-white font-sans font-thin top-0 right-0 z-40 w-64 h-screen overflow-y-auto transition-transform z-50 py-4 @(IsOpened ? "translate-x-0" : "translate-x-full")">
     @* Setting Body *@
     <h3 class="text-4xl mb-6 font-norma">Settings</h3>
 

@@ -509,10 +509,25 @@ Smaller additions:
 
 ## Phase 7: UI improvements
 
-- [ ] RTL layout for Kurdish and Arabic input: `dir="auto"` on the textareas at minimum, full
+- [x] RTL layout for Kurdish and Arabic input: `dir="auto"` on the textareas at minimum, full
       logical-property audit if time allows.
-- [ ] Keyboard access for the bottom sheets: Escape closes, focus is trapped while open, focus
+      (The converter's `Textarea` sets an explicit `dir` from `TextDirection.Of(text)`, which uses
+      the same first-strong-character rule as `dir="auto"`. It's explicit because the title badge
+      and copy button have to move too: they're now `end-*` instead of `right-*`, so they sit on
+      the left for right-to-left text instead of covering where its first line starts. Morse
+      output has no strong characters, so it stays left-to-right. The Custom Alphabet "Try it"
+      field and both decoders' output use plain `dir="auto"`.)
+- [x] Keyboard access for the bottom sheets: Escape closes, focus is trapped while open, focus
       returns to the trigger on close.
+      (`wwwroot/js/Sheets.ts`/`.js`, no .NET interop. The four bottom sheets and the Settings
+      drawer are marked `data-sheet` with `role="dialog"`, and they're `inert` while closed. That
+      also fixes Tab reaching their controls while they were only slid off-screen. A
+      `MutationObserver` on `inert` moves focus into a sheet when it opens and back to the button
+      that opened it when it closes. Escape clicks the sheet's own backdrop, so each sheet's
+      close logic still runs: Settings validates and saves, Sound and the mic stop. Verified with
+      real Tab and Escape key presses on the Sound sheet and the Settings drawer. Follow-up: the
+      off-canvas sidebar on phones has the same hidden-but-tabbable problem, but it's visible on
+      `sm:` and wider, so it needs a viewport-aware fix rather than a plain `inert`.)
 - [ ] `prefers-reduced-motion`: skip the slide-up transitions and, for the light player, offer a
       text ("ON/OFF") mode instead of full-screen flashing. Also worth a photosensitivity note.
 - [ ] Replace the raw error strings from exceptions with short human messages; keep the exception

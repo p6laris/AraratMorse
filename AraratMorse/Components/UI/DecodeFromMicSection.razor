@@ -4,9 +4,10 @@
 @implements IAsyncDisposable
 
 @* Overlay *@
-<div @onclick="Close" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
+<div @onclick="Close" data-sheet-overlay="decode-mic" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
 
-<div class="fixed bottom-0 left-0 flex flex-col bg-black text-white items-center w-full h-full rounded-t-lg p-5 mt-10 z-50 transition-transform shadow-top @(!IsOpened ? "translate-y-full" : "translate-y-0")">
+<div data-sheet="decode-mic" inert="@(!IsOpened)" tabindex="-1" role="dialog" aria-modal="true" aria-label="Decode from microphone"
+     class="fixed bottom-0 left-0 flex flex-col bg-black text-white items-center w-full h-full rounded-t-lg p-5 mt-10 z-50 transition-transform shadow-top @(!IsOpened ? "translate-y-full" : "translate-y-0")">
 
     <div class="flex items-center justify-between w-full mb-6">
         <button @onclick="Close" class="text-white rounded-full p-2">
@@ -40,7 +41,7 @@
             <p class="text-rose-400 text-sm">@_errorMessage</p>
         }
 
-        <div class="bg-white text-black rounded-xl p-4 text-sm min-h-24 break-words">
+        <div dir="auto" class="bg-white text-black rounded-xl p-4 text-sm min-h-24 break-words">
             @if (string.IsNullOrEmpty(_liveText))
             {
                 <span class="text-gray-400">@(_isListening ? "Listening..." : "Nothing decoded yet.")</span>

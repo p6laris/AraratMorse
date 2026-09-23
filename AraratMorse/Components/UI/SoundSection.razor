@@ -1,9 +1,10 @@
 @using AraratMorse.Components.UI.Player
 
 @* Overlay *@
-<div @onclick="@(async () => await CloseSectionAsync())" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
+<div @onclick="@(async () => await CloseSectionAsync())" data-sheet-overlay="sound" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
 
-<div class="fixed bottom-0 left-0 flex flex-col justify-between bg-black text-white h-full z-50 items-center w-full rounded-lg p-5 mt-10 transition-transform shadow-top @(!IsOpened ? "translate-y-full" : "translate-y-0")">
+<div data-sheet="sound" inert="@(!IsOpened)" tabindex="-1" role="dialog" aria-modal="true" aria-label="Sound"
+     class="fixed bottom-0 left-0 flex flex-col justify-between bg-black text-white h-full z-50 items-center w-full rounded-lg p-5 mt-10 transition-transform shadow-top @(!IsOpened ? "translate-y-full" : "translate-y-0")">
 
     @* Close Button *@
     <button @onclick="@(async () => await CloseSectionAsync())" class="text-white text-start self-start rounded-full p-2">
