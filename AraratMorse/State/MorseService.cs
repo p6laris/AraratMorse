@@ -32,4 +32,20 @@ public class MorseService
     public StreamingMorseDecoder CreateAudioDecoder(Language language, int sampleRate, double frequency,
         int wordsPerMinute) =>
         Morse.GetConverter().ForLanguage(language).CreateAudioDecoder(sampleRate, frequency, wordsPerMinute);
+
+    public MorseAlphabet BuildAlphabet(Language? baseLanguage, IEnumerable<(char Character, string Pattern)> entries)
+    {
+        var builder = baseLanguage is { } lang ? MorseAlphabetBuilder.From(lang) : new MorseAlphabetBuilder("Custom");
+
+        foreach (var (character, pattern) in entries)
+            builder.Add(character, pattern);
+
+        return builder.Build();
+    }
+
+    public string EncodeWithAlphabet(string text, MorseAlphabet alphabet) =>
+        Morse.GetConverter().ForAlphabet(alphabet).ToMorse(text).Encode();
+
+    public string DecodeWithAlphabet(string morse, MorseAlphabet alphabet) =>
+        Morse.GetConverter().ForAlphabet(alphabet).Decode(morse);
 }

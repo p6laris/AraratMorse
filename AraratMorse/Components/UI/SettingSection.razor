@@ -45,16 +45,16 @@
                 <ValidationMessage For="@(() => settings.Frequency)" class="text-rose-300 text-xs text-center font-medium" />
             </div>
 
-            <div class="flex flex-col items-center mb-2">
+            <div class="flex flex-col items-center mb-2 w-1/2">
                 <p>Quality</p>
-                <select @bind=qualitySelection class="text-center text-sm text-gray-500 outline-none disabled:opacity-50">
-                    <option value="standard">Standard (11 kHz, 16-bit)</option>
-                    <option value="studio">Studio (44.1 kHz, float)</option>
-                </select>
+                <Dropdown TValue="string" Options="@(new[] { "standard", "studio" })" Value="qualitySelection"
+                          ValueChanged="v => qualitySelection = v"
+                          LabelSelector="QualityLabel"
+                          Disabled="!IsCustom"/>
             </div>
 
             <label class="flex items-center gap-2 mb-2 text-sm">
-                <input type="checkbox" @bind=fadeOn/>
+                <input type="checkbox" @bind=fadeOn class="w-4 h-4 rounded border-gray-300 accent-black disabled:opacity-50"/>
                 Fade edges
             </label>
         </fieldset>
@@ -140,6 +140,8 @@
     }
 
     void HandleStateChanged() => StateHasChanged();
+
+    static string QualityLabel(string q) => q == "studio" ? "Studio (44.1 kHz, float)" : "Standard (11 kHz, 16-bit)";
 
     void SelectPreset(AraratMorse.State.SoundPreset preset)
     {

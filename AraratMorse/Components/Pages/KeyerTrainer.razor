@@ -10,22 +10,20 @@
     <div class="flex flex-col gap-6 items-stretch bg-white rounded-2xl shadow-sm w-full lg:w-1/2 lg:mx-auto text-black p-6 sm:p-8">
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <label class="flex flex-col gap-1.5">
+            <div class="flex flex-col gap-1.5">
                 <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Input</span>
-                <select @bind=_mode @bind:after="ResetAsync" disabled="@_isPracticing"
-                        class="border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50">
-                    <option value="@InputMode.Straight">Straight key</option>
-                    <option value="@InputMode.Iambic">Iambic paddles</option>
-                </select>
-            </label>
-            <label class="flex flex-col gap-1.5 @(_mode == InputMode.Straight ? "opacity-40" : "")">
+                <Dropdown TValue="InputMode" Options="Enum.GetValues<InputMode>()" Value="_mode"
+                          ValueChanged="OnModeChangedAsync"
+                          LabelSelector="InputModeLabel"
+                          Disabled="_isPracticing"/>
+            </div>
+            <div class="flex flex-col gap-1.5 @(_mode == InputMode.Straight ? "opacity-40" : "")">
                 <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Keyer mode</span>
-                <select @bind=_keyerMode disabled="@(_isPracticing || _mode == InputMode.Straight)"
-                        class="border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50">
-                    <option value="@KeyerMode.A">Mode A</option>
-                    <option value="@KeyerMode.B">Mode B</option>
-                </select>
-            </label>
+                <Dropdown TValue="KeyerMode" Options="Enum.GetValues<KeyerMode>()" Value="_keyerMode"
+                          ValueChanged="v => _keyerMode = v"
+                          LabelSelector="KeyerModeLabel"
+                          Disabled="@(_isPracticing || _mode == InputMode.Straight)"/>
+            </div>
             <label class="flex flex-col gap-1.5">
                 <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">WPM</span>
                 <input type="number" @bind=_wpm disabled="@_isPracticing"
@@ -159,6 +157,16 @@
     {
         if (_isPracticing)
             await StopAsync();
+    }
+
+    static string InputModeLabel(InputMode mode) => mode == InputMode.Straight ? "Straight key" : "Iambic paddles";
+
+    static string KeyerModeLabel(KeyerMode mode) => mode == KeyerMode.A ? "Mode A" : "Mode B";
+
+    async Task OnModeChangedAsync(InputMode mode)
+    {
+        _mode = mode;
+        await ResetAsync();
     }
 
     async Task IambicLoopAsync(CancellationToken token)

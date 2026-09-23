@@ -1,0 +1,319 @@
+@page "/callsigns"
+@using AraratMorse.Components.UI.Player
+@using MorseSharp
+
+<main class="flex flex-col font-sans">
+    <h1 class="text-white text-2xl sm:text-3xl lg:text-4xl font-black text-center lg:mx-auto outline-none mb-6">
+        Callsign Drills
+    </h1>
+
+    <div class="flex flex-col gap-6 items-stretch bg-white rounded-2xl shadow-sm w-full lg:w-1/2 lg:mx-auto text-black p-6 sm:p-8">
+
+        @* Mode + status row *@
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="inline-flex bg-gray-100 rounded-full p-1">
+                <button type="button" @onclick="() => SwitchMode(Mode.Callsigns)"
+                        class="text-sm font-medium rounded-full px-4 py-1.5 transition-colors @(_mode == Mode.Callsigns ? "bg-black text-white" : "text-gray-600 hover:text-black")">
+                    Callsigns
+                </button>
+                <button type="button" @onclick="() => SwitchMode(Mode.Qso)"
+                        class="text-sm font-medium rounded-full px-4 py-1.5 transition-colors @(_mode == Mode.Qso ? "bg-black text-white" : "text-gray-600 hover:text-black")">
+                    QSO
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                @if (_mode == Mode.Callsigns)
+                {
+                    <span class="inline-flex items-center bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full">
+                        Copied @_callsCorrect / @_callsTotal
+                    </span>
+                }
+                else
+                {
+                    <span class="inline-flex items-center bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full">
+                        Transmission @(_qsoIndex + 1) / @_qso.Length
+                    </span>
+                    <span class="inline-flex items-center bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full">
+                        Words @_qsoWordsCorrect / @_qsoWordsTotal
+                    </span>
+                }
+            </div>
+        </div>
+
+        @* Drill settings *@
+        <details class="settings-accordion group w-full rounded-xl border border-gray-200 open:bg-gray-50/50">
+            <summary class="flex items-center justify-between cursor-pointer select-none px-4 py-3 text-sm font-medium text-gray-700">
+                Drill settings
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                     class="text-gray-400 transition-transform group-open:rotate-180">
+                    <path fill="currentColor" d="M12 14.975q-.2 0-.375-.062T11.3 14.7l-4.6-4.6q-.275-.275-.275-.7t.275-.7q.275-.275.7-.275t.7.275l3.9 3.9l3.9-3.9q.275-.275.7-.275t.7.275q.275.275.275.7t-.275.7l-4.6 4.6q-.15.15-.325.213t-.375.062Z"/>
+                </svg>
+            </summary>
+            <div class="px-4 pb-4 pt-1 border-t border-gray-200">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Char speed</span>
+                        <input type="number" @bind=_charSpeed
+                               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"/>
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Word speed</span>
+                        <input type="number" @bind=_wordSpeed
+                               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"/>
+                    </label>
+                    <div class="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Tone</span>
+                        <Dropdown TValue="string" Options="SoundPreset.All.Select(p => p.Name)" Value="_tonePresetName"
+                                  ValueChanged="v => _tonePresetName = v"/>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-x-6 gap-y-2 mt-5">
+                    <label class="flex items-center gap-2 text-sm text-gray-700">
+                        <input type="checkbox" @bind=_lightMode class="w-4 h-4 rounded border-gray-300 accent-black"/>
+                        Light mode
+                    </label>
+                </div>
+            </div>
+        </details>
+
+        @if (_mode == Mode.Qso && _qsoIndex > 0)
+        {
+            <div class="flex flex-col gap-2 bg-gray-50 rounded-xl p-4">
+                <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Contact so far</span>
+                @for (var i = 0; i < _qsoIndex; i++)
+                {
+                    <p class="font-mono text-xs text-gray-600 break-words">@_qso[i]</p>
+                }
+            </div>
+        }
+
+        <div class="flex flex-col items-center gap-5 w-full">
+            @* A fresh player per round, so the previous transmission never lingers mid-playback. *@
+            <MorsePlayer @key="_round" MorseText="@_currentMorse" Language="Language.English"
+                         Kind="@(_lightMode ? PlayerKind.Light : PlayerKind.Sound)" Size="PlayerSize.Inline"
+                         ShowTimeline="_revealed"
+                         CharSpeedOverride="_charSpeed" WordSpeedOverride="_wordSpeed" FrequencyOverride="_tone"/>
+
+            @if (!_revealed)
+            {
+                <form @onsubmit="Submit" class="flex flex-col items-center gap-5 w-full">
+                    @if (_mode == Mode.Callsigns)
+                    {
+                        <input @bind=_typed @bind:event="oninput" placeholder="Type the callsign..."
+                               class="bg-gray-50 border border-gray-200 w-full rounded-xl p-4 text-center uppercase tracking-[0.2em]
+                                      text-lg focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-300" autocomplete="off"/>
+                    }
+                    else
+                    {
+                        <textarea @bind=_typed @bind:event="oninput" rows="4" placeholder="Copy the transmission..."
+                                  class="bg-gray-50 border border-gray-200 w-full rounded-xl p-4 uppercase font-mono text-sm
+                                         focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-300 resize-none"></textarea>
+                    }
+
+                    <button type="submit"
+                            class="bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-xl py-3 w-full sm:w-1/2 text-center">
+                        Submit
+                    </button>
+                </form>
+            }
+            else if (_mode == Mode.Callsigns)
+            {
+                <p class="text-lg font-medium text-center @(_lastCorrect ? "text-green-600" : "text-rose-500")">
+                    @(_lastCorrect ? "Copied!" : "Not quite")
+                </p>
+
+                <div class="flex justify-center gap-1 font-mono text-3xl font-black tracking-wider bg-gray-50 rounded-xl p-4 w-full">
+                    @foreach (var (token, matched) in _graded)
+                    {
+                        <span class="@(matched ? "text-green-600" : "text-rose-500")">@token</span>
+                    }
+                </div>
+                <p class="text-xs text-gray-500 text-center">You typed: @(string.IsNullOrWhiteSpace(_typed) ? "(nothing)" : _typed.Trim().ToUpperInvariant())</p>
+
+                <button @onclick="NextCallsign"
+                        class="bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-xl py-3 w-full sm:w-1/2 text-center">
+                    Next callsign
+                </button>
+            }
+            else
+            {
+                <p class="text-lg font-medium text-center">
+                    @_lastWordsCorrect/@_graded.Count words &middot; @(_graded.Count == 0 ? "-" : $"{(double) _lastWordsCorrect / _graded.Count * 100:F0}%")
+                </p>
+
+                <div class="flex flex-wrap justify-center gap-x-2 gap-y-1 font-mono text-base bg-gray-50 rounded-xl p-4 w-full">
+                    @foreach (var (token, matched) in _graded)
+                    {
+                        <span class="@(matched ? "text-green-600" : "text-rose-500 underline decoration-2")">@token</span>
+                    }
+                </div>
+                <p class="text-xs text-gray-500 text-center">Missed words are underlined in red.</p>
+
+                @if (_qsoIndex < _qso.Length - 1)
+                {
+                    <button @onclick="NextTransmission"
+                            class="bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-xl py-3 w-full sm:w-1/2 text-center">
+                        Next transmission
+                    </button>
+                }
+                else
+                {
+                    <p class="text-gray-700 text-center">
+                        Contact complete &middot; overall
+                        <span class="font-semibold text-black">@(_qsoWordsTotal == 0 ? "-" : $"{(double) _qsoWordsCorrect / _qsoWordsTotal * 100:F0}%")</span>
+                    </p>
+                    <button @onclick="NewContact"
+                            class="bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-xl py-3 w-full sm:w-1/2 text-center">
+                        New contact
+                    </button>
+                }
+            }
+        </div>
+
+    </div>
+</main>
+
+@code {
+
+    enum Mode { Callsigns, Qso }
+
+    [Inject] private MorseService MorseService { get; set; } = default!;
+
+    Mode _mode = Mode.Callsigns;
+
+    int _charSpeed = 20;
+    int _wordSpeed = 15;
+    string _tonePresetName = "Practice";
+    bool _lightMode;
+
+    int _round;
+    string _currentText = "";
+    string _currentMorse = "";
+    string _typed = "";
+    bool _revealed;
+    List<(string Token, bool Matched)> _graded = [];
+
+    bool _lastCorrect;
+    int _callsCorrect;
+    int _callsTotal;
+
+    string[] _qso = [];
+    int _qsoIndex;
+    int _lastWordsCorrect;
+    int _qsoWordsCorrect;
+    int _qsoWordsTotal;
+
+    double _tone => SoundPreset.All.FirstOrDefault(p => p.Name == _tonePresetName)?.Frequency ?? 600;
+
+    protected override void OnInitialized() => NextCallsign();
+
+    void SwitchMode(Mode mode)
+    {
+        if (_mode == mode)
+            return;
+
+        _mode = mode;
+        if (mode == Mode.Callsigns)
+            NextCallsign();
+        else
+            NewContact();
+    }
+
+    void Load(string text)
+    {
+        _currentText = text;
+        _currentMorse = MorseService.Encode(text, Language.English);
+        _typed = "";
+        _revealed = false;
+        _graded = [];
+        _round++;
+    }
+
+    void NextCallsign() => Load(Callsign.Next(Random.Shared));
+
+    void NewContact()
+    {
+        _qso = Qso.Generate(Random.Shared);
+        _qsoIndex = 0;
+        _qsoWordsCorrect = 0;
+        _qsoWordsTotal = 0;
+        Load(_qso[0]);
+    }
+
+    void NextTransmission()
+    {
+        _qsoIndex++;
+        Load(_qso[_qsoIndex]);
+    }
+
+    void Submit()
+    {
+        if (_revealed)
+            return;
+
+        if (_mode == Mode.Callsigns)
+        {
+            var sent = _currentText.ToUpperInvariant();
+            var typed = new string(_typed.Where(c => !char.IsWhiteSpace(c)).Select(char.ToUpperInvariant).ToArray());
+
+            _graded = Grade(sent.Select(c => c.ToString()).ToArray(), typed.Select(c => c.ToString()).ToArray());
+            _lastCorrect = sent == typed;
+            _callsTotal++;
+            if (_lastCorrect)
+                _callsCorrect++;
+        }
+        else
+        {
+            _graded = Grade(Words(_currentText), Words(_typed));
+            _lastWordsCorrect = _graded.Count(g => g.Matched);
+            _qsoWordsCorrect += _lastWordsCorrect;
+            _qsoWordsTotal += _graded.Count;
+        }
+
+        _revealed = true;
+    }
+
+    static string[] Words(string text) =>
+        text.ToUpperInvariant().Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries);
+
+    // Brackets are optional when typing a prosign: "SK" counts for "<SK>".
+    static string Normalize(string token) => token.Trim('<', '>');
+
+    // Marks which sent tokens appear, in order, in what was typed (longest common subsequence),
+    // so one dropped or extra word doesn't mark everything after it wrong the way a
+    // positional comparison would.
+    static List<(string Token, bool Matched)> Grade(string[] sent, string[] typed)
+    {
+        var lcs = new int[sent.Length + 1, typed.Length + 1];
+        for (var i = sent.Length - 1; i >= 0; i--)
+        for (var j = typed.Length - 1; j >= 0; j--)
+            lcs[i, j] = Normalize(sent[i]) == Normalize(typed[j])
+                ? lcs[i + 1, j + 1] + 1
+                : Math.Max(lcs[i + 1, j], lcs[i, j + 1]);
+
+        var result = new List<(string, bool)>(sent.Length);
+        int s = 0, t = 0;
+        while (s < sent.Length)
+        {
+            if (t < typed.Length && Normalize(sent[s]) == Normalize(typed[t]))
+            {
+                result.Add((sent[s], true));
+                s++;
+                t++;
+            }
+            else if (t < typed.Length && lcs[s, t + 1] > lcs[s + 1, t])
+            {
+                t++;
+            }
+            else
+            {
+                result.Add((sent[s], false));
+                s++;
+            }
+        }
+
+        return result;
+    }
+
+}

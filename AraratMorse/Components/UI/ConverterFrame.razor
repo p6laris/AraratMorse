@@ -2,6 +2,8 @@
 
 <div class="flex flex-col gap-5 items-center bg-white rounded-lg w-full lg:w-1/2 lg:mx-auto  text-black p-6">
 
+    <ProsignHelp Language="State.Language"/>
+
     @* Input *@
     <Textarea Placeholder="Type something..." Text="@State.Input" IsReadonly="false" TextChanged="Convert" Title="@fTitle()" />
 

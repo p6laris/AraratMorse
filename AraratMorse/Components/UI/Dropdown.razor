@@ -1,0 +1,64 @@
+@typeparam TValue
+
+<div class="relative @Class">
+    <button type="button" @onclick="Toggle" disabled="@Disabled"
+            class="w-full flex items-center justify-between gap-2 text-black bg-white border border-gray-300 rounded-lg text-sm px-3 py-2
+                   disabled:opacity-50 disabled:cursor-not-allowed">
+        <span class="truncate">@Label(Value)</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+             class="text-gray-400 shrink-0 transition-transform @(_open ? "rotate-180" : "")">
+            <path fill="currentColor" d="M12 14.975q-.2 0-.375-.062T11.3 14.7l-4.6-4.6q-.275-.275-.275-.7t.275-.7q.275-.275.7-.275t.7.275l3.9 3.9l3.9-3.9q.275-.275.7-.275t.7.275q.275.275.275.7t-.275.7l-4.6 4.6q-.15.15-.325.213t-.375.062Z"/>
+        </svg>
+    </button>
+
+    @if (_open)
+    {
+        <div @onclick="Close" class="fixed inset-0 z-20"></div>
+        <ul class="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto text-sm">
+            @foreach (var option in Options)
+            {
+                <li @onclick="() => SelectAsync(option)"
+                    class="px-3 py-2 hover:bg-gray-100 cursor-pointer @(Equals(option, Value) ? "bg-gray-50 font-medium" : "")">
+                    @Label(option)
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+
+    [Parameter, EditorRequired] public IEnumerable<TValue> Options { get; set; } = [];
+
+    [Parameter] public TValue Value { get; set; } = default!;
+
+    [Parameter] public EventCallback<TValue> ValueChanged { get; set; }
+
+    [Parameter] public Func<TValue, string>? LabelSelector { get; set; }
+
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    bool _open;
+
+    string Label(TValue value) => LabelSelector?.Invoke(value) ?? value?.ToString() ?? "";
+
+    void Toggle()
+    {
+        if (Disabled)
+            return;
+
+        _open = !_open;
+    }
+
+    void Close() => _open = false;
+
+    async Task SelectAsync(TValue option)
+    {
+        Value = option;
+        _open = false;
+        await ValueChanged.InvokeAsync(option);
+    }
+
+}

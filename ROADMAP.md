@@ -167,10 +167,11 @@ touches the file anyway.
       regenerates the whole WAV even when the panel is closed. Generate only when the panel opens
       or when inputs actually changed. (Now tracks the previous `IsOpened` value and only calls
       `Convert()` on the closed→open transition.)
-- [ ] `LightSection.Pause` "pauses" by doing `theMorse.Substring(offset)`, but `offset` counts
+- [x] `LightSection.Pause` "pauses" by doing `theMorse.Substring(offset)`, but `offset` counts
       blink callbacks (dots, dashes, and every gap), not characters of the Morse string. Resume
       after pause plays garbage. Phase 5 replaces this mechanism entirely. (Left untouched here —
-      this is explicitly Phase 5's job, not Phase 3's; only the Fluxor plumbing around it changed.)
+      this is explicitly Phase 5's job, not Phase 3's; only the Fluxor plumbing around it changed.
+      Resolved by Phase 5's element-stream rework; the `Substring(offset)` resume is gone.)
 - [x] `LightSection.Play` wraps the blink loop in `Task.Run`, which does nothing useful on
       single-threaded WASM, and cancellation only short-circuits the callback while the 4.1.4
       library loop keeps running to the end behind the overlay. With 6.x, pass the token to
@@ -186,8 +187,9 @@ touches the file anyway.
       init properties. (`MorseSettings` has `CharSpeed`/`WordSpeed`/`Frequency` as named
       `{ get; private set; }` properties set via one `Update(charSpeed, wordSpeed, frequency)`
       method — no positional constructor to get wrong.)
-- [ ] The audio element rebuilds a base64 data URI from the full WAV on every render of
-      `SoundSection`. Moves to a blob URL in Phase 4. (Left as-is; explicitly Phase 4's job.)
+- [x] The audio element rebuilds a base64 data URI from the full WAV on every render of
+      `SoundSection`. Moves to a blob URL in Phase 4. (Left as-is; explicitly Phase 4's job.
+      Resolved in Phase 4: audio goes through `URL.createObjectURL` in `Audio.ts`.)
 
 ## Phase 4: Sound section rework
 
@@ -390,14 +392,24 @@ heard, watched on the timeline, or flashed as light, per question, without leavi
       persisted per-character stats; "what to drill next" is `KochStats.WeakestCharacter` over the
       current pool; the streak increments once per calendar day via `RecordPracticeSession`,
       verified incrementing correctly across a session in the browser.)
-- [ ] Callsign and QSO drills as a second course: play `Callsign.Next()` or `Qso.Generate()`
+- [x] Callsign and QSO drills as a second course: play `Callsign.Next()` or `Qso.Generate()`
       transmission by transmission, each in its own question card with its own player, reveal
       after each attempt. Real-traffic shapes (RST, Q-codes, `<SK>`) are the syllabus here.
-      (Not started — a separate PR, per this phase's own "independent PRs" framing.)
-- [ ] Reading course (light instead of sound): same drills with the `MorsePlayer` in light mode,
-      for learning to read a blinking lamp rather than copy by ear. (Not started as a standalone
-      course; the Koch course's own "Light mode" checkbox covers the same `MorsePlayer` capability
-      but isn't a dedicated reading-focused course.)
+      (`/callsigns`, with a Callsigns | QSO toggle. Callsign mode: one callsign per card, exact
+      match needed to count as copied, and a per-character reveal. QSO mode walks the
+      `Qso.Generate()` transmissions in order, with the ones already revealed kept above as
+      "Contact so far" for context, and an overall word score at the end of the contact. Grading
+      does not use `Koch.Score`, which is strictly positional, so one dropped word in a long
+      transmission would mark everything after it wrong. It aligns sent against typed with a
+      longest-common-subsequence match instead: per character for callsigns, per word for QSOs.
+      Prosign brackets are optional when typing (`SK` counts for `<SK>`). The player gets a fresh
+      `@key` each round, so the previous transmission can't keep playing. Session-only stats,
+      nothing persisted.)
+- [x] Reading course (light instead of sound): same drills with the `MorsePlayer` in light mode,
+      for learning to read a blinking lamp rather than copy by ear. (Closed without a separate
+      page: both courses, Koch and Callsign Drills, have a "Light mode" toggle that runs the same
+      drills through the `MorsePlayer` light view, which is exactly this. A third page would
+      duplicate them.)
 
 **Unplanned but required — a real design bug, not scope creep:** `tailwind.config.js` had
 `boxShadow`, `keyframes`, and `animation` declared directly under `theme` instead of under
@@ -477,10 +489,23 @@ Keyer:
 
 Smaller additions:
 
-- [ ] Prosigns already work through `ToMorse` bracket syntax; document `<AR>`, `<SK>` etc. in the
+- [x] Prosigns already work through `ToMorse` bracket syntax; document `<AR>`, `<SK>` etc. in the
       UI (placeholder text or a help popover) and make sure the textarea doesn't mangle `<` `>`.
-- [ ] Custom alphabet page backed by `MorseAlphabetBuilder`, stored as JSON in localStorage and
+      (`ProsignHelp.razor`: a "Prosigns" popover on the converter card listing
+      `MorseAlphabet.ForLanguage(State.Language).Prosigns` with their patterns, so it follows the
+      selected language. The textarea's `@bind` goes through the DOM `.value` property, not
+      innerHTML, so `<AR>` round-trips untouched — verified in the browser.)
+- [x] Custom alphabet page backed by `MorseAlphabetBuilder`, stored as JSON in localStorage and
       rebuilt on load. Lets people add characters the built-in languages lack.
+      (`/custom-alphabet`: optional base language via `MorseAlphabetBuilder.From(lang)`, otherwise
+      a blank `new MorseAlphabetBuilder("Custom")`; entries plus the base are saved under
+      `araratmorse.customAlphabet` and rebuilt on every load. The library's own validation errors,
+      such as a character that's already mapped in the base, show inline, and a "Try it" box encodes
+      through `ForAlphabet(alphabet)`. Along the way, every native `<select>` in the app (Settings
+      quality, Koch tone, Keyer input/keyer mode, this page's base language) was replaced by a
+      shared `Dropdown<TValue>` component styled like `LanguageDropdown`. One gotcha: it must not
+      sit inside a `<label>`. The label forwards any click inside it to its first control, which
+      is the dropdown's own toggle button, so the list reopened straight after each pick.)
 
 ## Phase 7: UI improvements
 

@@ -1,0 +1,231 @@
+@page "/custom-alphabet"
+@using System.Text.Json
+@using System.Text.RegularExpressions
+@using MorseSharp
+
+<main class="flex flex-col font-sans">
+    <h1 class="text-white text-2xl sm:text-3xl lg:text-4xl font-black text-center lg:mx-auto outline-none mb-6">
+        Custom Alphabet
+    </h1>
+
+    <div class="flex flex-col gap-6 items-stretch bg-white rounded-2xl shadow-sm w-full lg:w-1/2 lg:mx-auto text-black p-6 sm:p-8">
+
+        <p class="text-sm text-gray-600">
+            Add characters the built-in languages lack, optionally starting from an existing one.
+            Saved entries are rebuilt every time you open this page.
+        </p>
+
+        <div class="flex flex-col gap-1.5">
+            <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Base language</span>
+            <Dropdown TValue="Language?" Options="_languageOptions" Value="_baseLanguage"
+                      ValueChanged="OnBaseLanguageChangedAsync"
+                      LabelSelector="LanguageOptionLabel"/>
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Your added characters</span>
+
+            @if (_entries.Count == 0)
+            {
+                <p class="text-sm text-gray-400">None yet — add one below.</p>
+            }
+            else
+            {
+                <ul class="flex flex-col divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden">
+                    @foreach (var entry in _entries)
+                    {
+                        <li class="flex items-center justify-between px-3 py-2 text-sm">
+                            <span class="font-mono">@entry.Character &nbsp;&rarr;&nbsp; @entry.Pattern</span>
+                            <button @onclick="() => RemoveEntry(entry)" class="text-rose-500 hover:text-rose-600 text-xs font-medium">
+                                Remove
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        <div class="grid grid-cols-[1fr_2fr_auto] gap-2 items-end">
+            <label class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Character</span>
+                <input @bind=_newChar maxlength="1"
+                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-center"/>
+            </label>
+            <label class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Pattern (. and -)</span>
+                <input @bind=_newPattern placeholder=".-.."
+                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono tracking-widest"/>
+            </label>
+            <button @onclick="AddEntry" class="bg-black text-white font-medium rounded-lg px-4 py-2 text-sm h-fit">
+                Add
+            </button>
+        </div>
+
+        @if (_errorMessage is not null)
+        {
+            <p class="text-rose-500 text-sm">@_errorMessage</p>
+        }
+
+        <hr class="border-gray-100"/>
+
+        <div class="flex flex-col gap-2">
+            <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Try it</span>
+            <input @bind=_testText @bind:event="oninput" @bind:after="UpdateTestResult" placeholder="Type text to encode..." dir="auto"
+                   class="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm"/>
+            <div class="bg-gray-50 rounded-lg px-3 py-2 text-sm font-mono min-h-10 break-words">
+                @(_testResult.Length == 0 ? " " : _testResult)
+            </div>
+        </div>
+
+    </div>
+</main>
+
+@code {
+
+    record Entry(char Character, string Pattern);
+
+    record Snapshot(Language? BaseLanguage, List<Entry> Entries);
+
+    const string StorageKey = "araratmorse.customAlphabet";
+
+    [Inject] private MorseService MorseService { get; set; } = default!;
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    static readonly Language?[] _languageOptions =
+        [null, .. Enum.GetValues<Language>().Cast<Language?>()];
+
+    Language? _baseLanguage;
+
+    List<Entry> _entries = [];
+    string _newChar = "";
+    string _newPattern = "";
+    string? _errorMessage;
+
+    string _testText = "";
+    string _testResult = "";
+
+    MorseAlphabet? _alphabet;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RestoreAsync();
+        Rebuild();
+    }
+
+    async Task RestoreAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            if (string.IsNullOrEmpty(json))
+                return;
+
+            var snapshot = JsonSerializer.Deserialize<Snapshot>(json);
+            if (snapshot is null)
+                return;
+
+            _baseLanguage = snapshot.BaseLanguage;
+            _entries = snapshot.Entries;
+        }
+        catch (JsonException)
+        {
+            // corrupt/old localStorage value — start fresh
+        }
+    }
+
+    async Task SaveAsync()
+    {
+        var snapshot = new Snapshot(_baseLanguage, _entries);
+        await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, JsonSerializer.Serialize(snapshot));
+    }
+
+    void AddEntry()
+    {
+        _errorMessage = null;
+
+        if (_newChar.Length != 1)
+        {
+            _errorMessage = "Enter exactly one character.";
+            return;
+        }
+
+        if (!Regex.IsMatch(_newPattern, "^[.-]{1,8}$"))
+        {
+            _errorMessage = "Pattern must be 1-8 symbols of . and - only.";
+            return;
+        }
+
+        var character = _newChar[0];
+        _entries = [.. _entries.Where(e => e.Character != character), new Entry(character, _newPattern)];
+        _newChar = "";
+        _newPattern = "";
+
+        _ = RebuildAndSave();
+    }
+
+    void RemoveEntry(Entry entry)
+    {
+        _entries = [.. _entries.Where(e => e != entry)];
+        _ = RebuildAndSave();
+    }
+
+    async Task RebuildAndSave()
+    {
+        Rebuild();
+        await SaveAsync();
+    }
+
+    static string LanguageOptionLabel(Language? language) => language?.ToString() ?? "None (blank alphabet)";
+
+    async Task OnBaseLanguageChangedAsync(Language? language)
+    {
+        _baseLanguage = language;
+        await RebuildAndSave();
+    }
+
+    void Rebuild()
+    {
+        if (_baseLanguage is null && _entries.Count == 0)
+        {
+            // Nothing to build yet — a blank alphabet with zero characters is rejected by the
+            // library, but that's not an error worth showing before the user has added anything.
+            _alphabet = null;
+            _errorMessage = null;
+            UpdateTestResult();
+            return;
+        }
+
+        try
+        {
+            _alphabet = MorseService.BuildAlphabet(_baseLanguage, _entries.Select(e => (e.Character, e.Pattern)));
+            _errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+            _alphabet = null;
+        }
+
+        UpdateTestResult();
+    }
+
+    void UpdateTestResult()
+    {
+        if (_alphabet is null || string.IsNullOrEmpty(_testText))
+        {
+            _testResult = "";
+            return;
+        }
+
+        try
+        {
+            _testResult = MorseService.EncodeWithAlphabet(_testText, _alphabet);
+        }
+        catch (Exception ex)
+        {
+            _testResult = ex.Message;
+        }
+    }
+
+}
