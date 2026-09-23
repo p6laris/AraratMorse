@@ -54,18 +54,18 @@
         if (WavBytes is not { Length: > 0 })
             return "";
 
-        var samples = AraratMorse.State.WavSamples.Read(WavBytes);
-        var visible = (int)Math.Clamp(samples.Length * VisibleFraction, 1, samples.Length);
+        var frames = AraratMorse.State.WavSamples.FrameCount(WavBytes);
+        if (frames == 0)
+            return "";
+        var visible = (int)Math.Clamp(frames * VisibleFraction, 1, frames);
 
         // Roughly 20ms per column at the standard 11 kHz rate: fine enough that the shortest
         // gap (between the dots of a letter) never falls inside a single column, on a clip of
         // any length.
         _columns = Math.Clamp(visible / 220, MinColumns, MaxColumns);
-        var peaks = AraratMorse.State.WavSamples.Downsample(samples.AsSpan(0, visible), _columns);
-        if (peaks.Length == 0)
+        var raw = AraratMorse.State.WavSamples.Peaks(WavBytes, visible, _columns);
+        if (raw.Length == 0)
             return "";
-
-        var raw = peaks.Select(p => Math.Min(1f, Math.Max(Math.Abs(p.Min), Math.Abs(p.Max)))).ToArray();
 
         // The generated signal is on/off keying at one volume, so draw it that way: a column is
         // on (at the loudest level) or off. Drawing peaks literally leaves slivers wherever a

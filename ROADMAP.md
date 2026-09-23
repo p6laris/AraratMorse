@@ -599,17 +599,56 @@ Smaller additions:
 
 ## Phase 8: Performance
 
-- [ ] Bundle: after Phases 0 and 2, the app should have four packages left (MorseSharp, ClipLazor,
+- [x] Bundle: after Phases 0 and 2, the app should have four packages left (MorseSharp, ClipLazor,
       FluentValidation, WebAssembly). Compare published size against main and record it.
-- [ ] Keep `RunAOTCompilation` but re-measure; Fluxor reflection scanning
+      (Exactly those four, plus the dev server, which doesn't ship. On `main` there were eight:
+      Fluxor and its Redux devtools, and Newtonsoft.Json. Measured against the deployed
+      `gh-pages` build of `main`:
+
+      | `_framework`             | live (`main`) | `dev`     | change |
+      |--------------------------|---------------|-----------|--------|
+      | gzip (what Pages serves) | 12.22 MB      | 9.06 MB   | −26%   |
+      | Brotli                   | 8.42 MB       | 6.27 MB   | −26%   |
+      | raw                      | 38.42 MB      | 27.04 MB  | −30%   |
+      | `dotnet.native.wasm`     | 27.4 MB       | 19.45 MB  | −29%   |
+      | assemblies               | 73            | 39        | −34    |
+
+      Gone: Fluxor, Newtonsoft.Json, and what they pulled in, including all of `System.Private.Xml`
+      and `Xml.Linq`, `System.Data.Common`, `System.Drawing`, `Reflection.Emit`, `Runtime.Numerics`
+      and the serialization formatters. Nothing was added. The largest non-framework assembly left
+      is FluentValidation, 469 KB, which validates three number fields in Settings; replacing it
+      with plain range checks is the next easy cut.)
+- [x] Keep `RunAOTCompilation` but re-measure; Fluxor reflection scanning
       (`ScanAssemblies`) is gone, so startup should drop noticeably.
-- [ ] Kill the per-render base64 audio churn (Phase 4 does this); it is the single biggest
+      (Kept. Both builds were served locally the way Pages serves them, and timed from navigation
+      to first render of the app shell, 8 warm starts each, alternating: `main` had a median of
+      724 ms (mean 626), `dev` 503 ms (mean 574). The ranges overlap a lot on a busy machine, so
+      startup CPU work is about the same, maybe a little lower. The clear startup win is the
+      3.2 MB less to download on a first visit, about 1.3 s at 20 Mbit/s.)
+- [x] Kill the per-render base64 audio churn (Phase 4 does this); it is the single biggest
       allocation source in the app today.
-- [ ] Audit `StateHasChanged` frequency in the light loop: one render per element is fine at 25
+      (Done in Phase 4: audio goes through a blob URL, and there's no `ToBase64String` left.)
+- [x] Audit `StateHasChanged` frequency in the light loop: one render per element is fine at 25
       wpm (about 20 per second), but throttle if profiling shows layout thrash.
-- [ ] MorseSharp 6 itself is allocation-free on encode and near-flat on the element stream, so
+      (No throttle needed. Measured at the Contest preset (30 wpm) on the full-screen lamp, with a
+      5 ms timer ping for main-thread delay, which works even with the page hidden. The AOT build
+      had a median of 0.7 ms and a 95th percentile of 1.9 ms while playing, against 1.5 ms idle,
+      with no tasks over 50 ms. The loop stayed exactly on schedule, 107 of 326 elements after 8 s.
+      The interpreted Debug build showed 24 ms at the 95th percentile, which is interpreter cost
+      and doesn't ship.)
+- [x] MorseSharp 6 itself is allocation-free on encode and near-flat on the element stream, so
       the app's remaining garbage is UI-side; profile with the browser tools after the rework
       rather than guessing.
+      (Profiled through the runtime's WebAssembly memory and the JS heap under stress. 200
+      conversions: no growth at all. 85 open/close cycles of the Sound sheet: the JS heap swung
+      between 10 and 18 MB and kept falling back to its baseline, and WebAssembly memory stepped
+      55 → 66 → 80 MB, then held flat for the last 50 cycles. That's the GC sizing its heap, not
+      a leak. The garbage there came from the waveform converting the whole WAV to a `float[]`
+      (twice the WAV's size) on every draw, just to take each column's peak. `WavSamples.Peaks`
+      now reads the peaks straight from the PCM bytes, and the unused `Read`/`Downsample` pair
+      is gone. Re-measured on a fresh AOT build: WebAssembly memory settles at 66.5 MB after 15
+      cycles and stays there through 45, against 79.8 MB before, so the working set is about
+      13 MB smaller.)
 
 ## Phase 9: CI and release
 

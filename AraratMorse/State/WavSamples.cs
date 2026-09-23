@@ -58,33 +58,61 @@ public static class WavSamples
         return true;
     }
 
-    /// <summary>Mono-downmixed samples normalized to [-1, 1], for visualization.</summary>
-    public static float[] Read(ReadOnlySpan<byte> wav)
+    /// <summary>Number of sample frames in the data chunk.</summary>
+    public static int FrameCount(ReadOnlySpan<byte> wav)
     {
         if (!TryParseHeader(wav, out var header))
+            return 0;
+
+        var frameSize = header.BitsPerSample / 8 * header.Channels;
+        return frameSize > 0 ? header.Data.Length / frameSize : 0;
+    }
+
+    /// <summary>
+    /// Peak absolute amplitude (0-1, first channel) per column over the first <paramref name="frames"/>
+    /// frames, for drawing a waveform. Reads the PCM bytes directly rather than converting the
+    /// whole file to floats first, which cost twice the WAV's size on every redraw.
+    /// </summary>
+    public static float[] Peaks(ReadOnlySpan<byte> wav, int frames, int columns)
+    {
+        if (columns <= 0 || !TryParseHeader(wav, out var header))
             return [];
 
         var bytesPerSample = header.BitsPerSample / 8;
         var frameSize = bytesPerSample * header.Channels;
-        if (frameSize <= 0)
+        if (frameSize <= 0 || bytesPerSample is not (1 or 2 or 4))
             return [];
 
-        var frameCount = header.Data.Length / frameSize;
-        var samples = new float[frameCount];
+        frames = Math.Min(frames, header.Data.Length / frameSize);
+        if (frames <= 0)
+            return [];
 
-        for (var i = 0; i < frameCount; i++)
+        var peaks = new float[columns];
+        var framesPerColumn = (double)frames / columns;
+
+        for (var c = 0; c < columns; c++)
         {
-            var frame = header.Data.Slice(i * frameSize, bytesPerSample); // first channel only
-            samples[i] = header.BitsPerSample switch
+            var start = (int)(c * framesPerColumn);
+            var end = Math.Max(start + 1, (int)Math.Min(frames, (c + 1) * framesPerColumn));
+
+            var peak = 0f;
+            for (var i = start; i < end; i++)
             {
-                8 => (frame[0] - 128) / 128f,
-                16 => BitConverter.ToInt16(frame) / 32768f,
-                32 => BitConverter.ToSingle(frame),
-                _ => 0f
-            };
+                var sample = header.Data.Slice(i * frameSize, bytesPerSample);
+                var value = bytesPerSample switch
+                {
+                    1 => Math.Abs(sample[0] - 128) / 128f,
+                    2 => Math.Abs(BitConverter.ToInt16(sample) / 32768f),
+                    _ => Math.Abs(BitConverter.ToSingle(sample))
+                };
+                if (value > peak)
+                    peak = value;
+            }
+
+            peaks[c] = Math.Min(1f, peak);
         }
 
-        return samples;
+        return peaks;
     }
 
     /// <summary>
@@ -122,33 +150,5 @@ public static class WavSamples
         }
 
         return samples;
-    }
-
-    /// <summary>One (min, max) amplitude pair per pixel column, for a peak-envelope waveform.</summary>
-    public static (float Min, float Max)[] Downsample(ReadOnlySpan<float> samples, int columns)
-    {
-        if (samples.Length == 0 || columns <= 0)
-            return [];
-
-        var result = new (float Min, float Max)[columns];
-        var samplesPerColumn = (double)samples.Length / columns;
-
-        for (var c = 0; c < columns; c++)
-        {
-            var start = (int)(c * samplesPerColumn);
-            var end = Math.Max(start + 1, (int)Math.Min(samples.Length, (c + 1) * samplesPerColumn));
-
-            var min = float.MaxValue;
-            var max = float.MinValue;
-            for (var i = start; i < end; i++)
-            {
-                if (samples[i] < min) min = samples[i];
-                if (samples[i] > max) max = samples[i];
-            }
-
-            result[c] = (min, max);
-        }
-
-        return result;
     }
 }
