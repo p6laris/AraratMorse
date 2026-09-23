@@ -10,10 +10,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 var AraratMorse;
 (function (AraratMorse) {
+    function formatSeconds(seconds) {
+        if (!isFinite(seconds) || seconds < 0)
+            seconds = 0;
+        if (seconds < 60)
+            return `${seconds.toFixed(1)}s`;
+        const minutes = Math.floor(seconds / 60);
+        return `${minutes}:${(seconds - minutes * 60).toFixed(1).padStart(4, "0")}`;
+    }
     class AudioManager {
         constructor() {
             this.blobUrls = new Map();
             this.playheads = new Map();
+            this.watches = new Map();
         }
         getAudio(audioId) {
             return document.getElementById(audioId);
@@ -34,9 +43,55 @@ var AraratMorse;
                 this.blobUrls.delete(audioId);
             }
         }
+        // Resolves false when the browser refuses to start (e.g. autoplay policy), so the caller
+        // doesn't sit in a "playing" state that never happens.
         play(audioId) {
-            var _a;
-            (_a = this.getAudio(audioId)) === null || _a === void 0 ? void 0 : _a.play();
+            const audio = this.getAudio(audioId);
+            if (!audio)
+                return Promise.resolve(false);
+            return audio.play().then(() => true, () => false);
+        }
+        // Reports the end of playback to .NET (rewinding so the next play starts over) and keeps
+        // an elapsed-time label current while playing.
+        watch(audioId, dotNetRef, elapsedId) {
+            this.unwatch(audioId);
+            const audio = this.getAudio(audioId);
+            if (!audio)
+                return;
+            const state = { audio, rafId: null, listeners: [] };
+            const render = () => {
+                const label = document.getElementById(elapsedId);
+                if (label)
+                    label.textContent = formatSeconds(audio.currentTime);
+            };
+            const loop = () => {
+                render();
+                state.rafId = (!audio.paused && !audio.ended) ? requestAnimationFrame(loop) : null;
+            };
+            const onPlay = () => {
+                if (state.rafId === null)
+                    state.rafId = requestAnimationFrame(loop);
+            };
+            const onEnded = () => {
+                audio.currentTime = 0;
+                render();
+                dotNetRef.invokeMethodAsync("OnPlaybackEnded");
+            };
+            state.listeners = [["play", onPlay], ["seeked", render], ["ended", onEnded]];
+            for (const [name, handler] of state.listeners)
+                audio.addEventListener(name, handler);
+            this.watches.set(audioId, state);
+            render();
+        }
+        unwatch(audioId) {
+            const state = this.watches.get(audioId);
+            if (!state)
+                return;
+            if (state.rafId !== null)
+                cancelAnimationFrame(state.rafId);
+            for (const [name, handler] of state.listeners)
+                state.audio.removeEventListener(name, handler);
+            this.watches.delete(audioId);
         }
         pause(audioId) {
             var _a;
@@ -74,6 +129,7 @@ var AraratMorse;
                 ? Array.from(container.querySelectorAll(".timeline-char"))
                 : [];
             const state = { rafId: null, audio, onPlay: () => {
+                }, onSeeked: () => {
                 } };
             const step = () => {
                 const ratio = audio.duration > 0 ? audio.currentTime / audio.duration : 0;
@@ -90,7 +146,14 @@ var AraratMorse;
                 if (state.rafId === null)
                     state.rafId = requestAnimationFrame(step);
             };
+            // Stop and the end-of-playback rewind happen while paused, when the frame loop isn't
+            // running, so redraw once on seek or the playhead would stay where it stopped.
+            state.onSeeked = () => {
+                if (state.rafId === null)
+                    step();
+            };
             audio.addEventListener("play", state.onPlay);
+            audio.addEventListener("seeked", state.onSeeked);
             this.playheads.set(playheadId, state);
             step();
         }
@@ -101,9 +164,11 @@ var AraratMorse;
             if (state.rafId !== null)
                 cancelAnimationFrame(state.rafId);
             state.audio.removeEventListener("play", state.onPlay);
+            state.audio.removeEventListener("seeked", state.onSeeked);
             this.playheads.delete(playheadId);
         }
         disposePlayer(audioId, playheadIds) {
+            this.unwatch(audioId);
             for (const id of playheadIds)
                 this.detachPlayhead(id);
             this.revokeSource(audioId);

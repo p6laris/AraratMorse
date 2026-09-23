@@ -45,18 +45,21 @@
             }
         </div>
 
-        <div class="grid grid-cols-[1fr_2fr_auto] gap-2 items-end">
-            <label class="flex flex-col gap-1.5">
+        <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] gap-2 items-end">
+            <label class="flex flex-col gap-1.5 min-w-0">
                 <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Character</span>
-                <input @bind=_newChar maxlength="1"
-                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm text-center"/>
+                <input @bind=_newChar maxlength="1" dir="auto"
+                       class="w-full min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center
+                              focus:outline-none focus:ring-2 focus:ring-black/10"/>
             </label>
-            <label class="flex flex-col gap-1.5">
-                <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Pattern (. and -)</span>
+            <label class="flex flex-col gap-1.5 min-w-0">
+                <span class="text-xs font-medium text-gray-500 uppercase tracking-wide truncate">Pattern (. and -)</span>
                 <input @bind=_newPattern placeholder=".-.."
-                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono tracking-widest"/>
+                       class="w-full min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono tracking-widest
+                              focus:outline-none focus:ring-2 focus:ring-black/10"/>
             </label>
-            <button @onclick="AddEntry" class="bg-black text-white font-medium rounded-lg px-4 py-2 text-sm h-fit">
+            <button @onclick="AddEntry"
+                    class="col-span-2 sm:col-span-1 bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-lg px-5 py-2 text-sm h-fit">
                 Add
             </button>
         </div>

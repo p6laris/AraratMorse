@@ -1,7 +1,7 @@
 @using System.Globalization
 @using MorseSharp
 
-<div id="@TrackId" class="relative w-full h-10 bg-gray-900 rounded flex items-stretch overflow-hidden">
+<div id="@TrackId" class="relative w-full h-10 bg-gray-900 rounded-lg flex items-stretch overflow-hidden">
     @foreach (var item in _items)
     {
         @if (item.IsGap)

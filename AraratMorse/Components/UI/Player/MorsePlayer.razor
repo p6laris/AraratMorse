@@ -2,16 +2,16 @@
 @using MorseSharp.Audio
 @implements IAsyncDisposable
 
-<div class="flex flex-col @(Size == PlayerSize.Full ? "w-full h-full" : "w-full")">
+<div class="flex flex-col gap-3 @(Size == PlayerSize.Full ? "w-full h-full" : "w-full")">
 
     @if (_errorOccurred)
     {
-        <p class="text-white text-xl m-auto">Could not generate the @(Kind == PlayerKind.Light ? "light" : "audio").</p>
+        <p class="@(OnDark ? "text-white" : "text-black") text-lg m-auto">Could not generate the @(Kind == PlayerKind.Light ? "light" : "audio").</p>
     }
     else
     {
         @* Visualization *@
-        <div class="@(Size == PlayerSize.Full ? "flex-1" : "h-24") w-full relative rounded-lg overflow-hidden">
+        <div class="@(Size == PlayerSize.Full ? "flex-1 min-h-0" : "h-24") w-full relative rounded-xl overflow-hidden ring-1 @(OnDark ? "ring-white/10" : "ring-black/5")">
             @if (Kind is PlayerKind.Sound or PlayerKind.Both)
             {
                 <WaveformView Id="@_soundId" WavBytes="_wavBytes"/>
@@ -25,44 +25,58 @@
 
         @if (ShowTimeline && _sequence is not null)
         {
-            <div class="mt-2">
-                <ElementTimeline Id="@_timelineId" Sequence="_sequence"
-                                 PlayheadRatio="@(Kind == PlayerKind.Light ? _lightPlayheadRatio : null)"/>
-            </div>
+            <ElementTimeline Id="@_timelineId" Sequence="_sequence"
+                             PlayheadRatio="@(Kind == PlayerKind.Light ? _lightPlayheadRatio : null)"/>
         }
 
-        @if (_sequence is { } sequence)
-        {
-            <p class="text-white text-xs text-center mt-1 opacity-70">
-                @(Kind is PlayerKind.Light or PlayerKind.Both && LightProgressText is { } progress ? progress : FormatDuration(sequence.Duration))
+        @* Controls *@
+        <div class="flex items-center justify-between gap-3">
+            <p class="min-w-0 truncate text-xs tabular-nums @(OnDark ? "text-white/70" : "text-gray-500")">
+                @if (Kind is PlayerKind.Light or PlayerKind.Both && LightProgressText is { } progress)
+                {
+                    @progress
+                }
+                else if (_sequence is not null)
+                {
+                    @* The elapsed span is filled in by JS as the audio plays; Blazor never renders into it. *@
+                    <span id="@_elapsedId"></span><span> / @FormatDuration(TotalDuration)</span>
+                }
             </p>
-        }
 
-        @* Toolbar *@
-        <div class="flex gap-2 items-center justify-center bg-white px-3 py-2 rounded-3xl mx-auto mt-2">
-            <button @onclick="PlayAsync" disabled="@_isPlaying" class="@(_isPlaying ? "text-gray-300" : "text-green-600")">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-                    <path fill="currentColor" d="M6.235 2.192A1.5 1.5 0 0 0 4 3.499v9a1.5 1.5 0 0 0 2.235 1.308l8-4.5a1.5 1.5 0 0 0 0-2.615l-8-4.5Z"/>
-                </svg>
-            </button>
-            <button @onclick="PauseAsync" disabled="@(!_isPlaying)" class="@(_isPlaying ? "text-gray-600" : "text-gray-300")">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-                    <path fill="currentColor" d="M3.75 2A1.75 1.75 0 0 0 2 3.75v8.5c0 .966.784 1.75 1.75 1.75h1.5A1.75 1.75 0 0 0 7 12.25v-8.5A1.75 1.75 0 0 0 5.25 2h-1.5Zm7 0A1.75 1.75 0 0 0 9 3.75v8.5c0 .966.784 1.75 1.75 1.75h1.5A1.75 1.75 0 0 0 14 12.25v-8.5A1.75 1.75 0 0 0 12.25 2h-1.5Z"/>
-                </svg>
-            </button>
-            <button @onclick="StopAsync" disabled="@(!_isPlaying)" class="@(_isPlaying ? "text-rose-600" : "text-rose-300")">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-                    <path fill="currentColor" d="M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8Zm5-3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H6Z"/>
-                </svg>
-            </button>
-            @if (Kind is PlayerKind.Sound or PlayerKind.Both)
-            {
-                <button @onclick="Download" class="text-gray-500">
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button" @onclick="StopAsync" disabled="@(!CanStop)" aria-label="Stop" title="Stop"
+                        class="@GhostButton">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-                        <path fill="currentColor" d="M5 2v2.5A1.5 1.5 0 0 0 6.5 6h2A1.5 1.5 0 0 0 10 4.5V2h.379a2 2 0 0 1 1.414.586l1.621 1.621A2 2 0 0 1 14 5.621V12a2 2 0 0 1-2 2V9.5A1.5 1.5 0 0 0 10.5 8h-5C4.673 8 4 8.669 4 9.498V14a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h1Zm1 0v2.5a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V2H6ZM5 14h6V9.5a.5.5 0 0 0-.5-.5h-5c-.277 0-.5.223-.5.498V14Z"/>
+                        <path fill="currentColor" d="M4.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 11.5 3h-7Z"/>
                     </svg>
                 </button>
-            }
+
+                <button type="button" @onclick="TogglePlayAsync" aria-label="@(_isPlaying ? "Pause" : "Play")" title="@(_isPlaying ? "Pause" : "Play")"
+                        class="w-11 h-11 rounded-full flex items-center justify-center transition-transform active:scale-95 shadow-sm
+                               @(OnDark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800")">
+                    @if (_isPlaying)
+                    {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 16 16">
+                            <path fill="currentColor" d="M3.75 2A1.75 1.75 0 0 0 2 3.75v8.5c0 .966.784 1.75 1.75 1.75h1.5A1.75 1.75 0 0 0 7 12.25v-8.5A1.75 1.75 0 0 0 5.25 2h-1.5Zm7 0A1.75 1.75 0 0 0 9 3.75v8.5c0 .966.784 1.75 1.75 1.75h1.5A1.75 1.75 0 0 0 14 12.25v-8.5A1.75 1.75 0 0 0 12.25 2h-1.5Z"/>
+                        </svg>
+                    }
+                    else
+                    {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 16 16" class="translate-x-px">
+                            <path fill="currentColor" d="M6.235 2.192A1.5 1.5 0 0 0 4 3.499v9a1.5 1.5 0 0 0 2.235 1.308l8-4.5a1.5 1.5 0 0 0 0-2.615l-8-4.5Z"/>
+                        </svg>
+                    }
+                </button>
+
+                @if (Kind is PlayerKind.Sound or PlayerKind.Both)
+                {
+                    <button type="button" @onclick="Download" aria-label="Download WAV" title="Download WAV" class="@GhostButton">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.586V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/>
+                        </svg>
+                    </button>
+                }
+            </div>
         </div>
     }
 
@@ -126,19 +140,34 @@
     double EffectiveFrequency => FrequencyOverride ?? Settings.Frequency;
     AudioFormat EffectiveFormat => FormatOverride ?? Settings.Format;
 
+    // Full-size players live on the black bottom sheets; inline ones sit on white cards.
+    bool OnDark => Size == PlayerSize.Full;
+
+    string GhostButton => "w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed "
+                          + (OnDark ? "text-white/80 hover:bg-white/10" : "text-gray-600 hover:bg-gray-100");
+
     readonly string _instanceId = $"player-{Guid.NewGuid():N}";
     string _soundId => $"{_instanceId}-audio";
+    string _elapsedId => $"{_instanceId}-elapsed";
     string _waveformPlayheadId => $"{_soundId}-playhead";
     string _timelineId => $"{_instanceId}-timeline";
     string _timelinePlayheadId => $"{_timelineId}-playhead";
     string _timelineTrackId => $"{_timelineId}-track";
 
+    DotNetObjectReference<MorsePlayer>? _selfRef;
+
     byte[]? _wavBytes;
     MorseElementSequence? _sequence;
     bool _errorOccurred;
     bool _isPlaying;
+    bool _isPaused;
     bool _isLightOn;
+    bool _lightRunning;
     bool _needsAudioPush;
+
+    bool CanStop => _isPlaying || _isPaused;
+
+    TimeSpan TotalDuration => _sequence?.Duration ?? TimeSpan.Zero;
 
     List<MorseElement>? _lightElements;
     int _lightElementsPlayed;
@@ -161,17 +190,19 @@
     bool _wasActive;
     string? _lastMorseText;
     Language? _lastLanguage;
+    PlayerKind? _lastKind;
 
     protected override void OnParametersSet()
     {
         var justOpened = Active && !_wasActive;
-        var inputChanged = Active && (MorseText != _lastMorseText || Language != _lastLanguage);
+        var inputChanged = Active && (MorseText != _lastMorseText || Language != _lastLanguage || Kind != _lastKind);
 
         if (justOpened || inputChanged)
         {
             Regenerate();
             _lastMorseText = MorseText;
             _lastLanguage = Language;
+            _lastKind = Kind;
         }
 
         _wasActive = Active;
@@ -182,7 +213,10 @@
         if (_needsAudioPush && _wavBytes is not null)
         {
             _needsAudioPush = false;
+            _selfRef ??= DotNetObjectReference.Create(this);
+
             await JS.InvokeVoidAsync("araratMorse.setSource", _soundId, _wavBytes);
+            await JS.InvokeVoidAsync("araratMorse.watch", _soundId, _selfRef, _elapsedId);
             await JS.InvokeVoidAsync("araratMorse.attachPlayhead", _soundId, _waveformPlayheadId, (string?)null);
 
             if (ShowTimeline)
@@ -192,6 +226,12 @@
 
     void Regenerate()
     {
+        // New source: whatever was playing is gone, so the controls must not claim otherwise.
+        _lightCts?.Cancel();
+        _isPlaying = false;
+        _isPaused = false;
+        _isLightOn = false;
+
         try
         {
             if (Kind is PlayerKind.Sound or PlayerKind.Both)
@@ -203,17 +243,15 @@
 
             _lightElements = null;
 
-            if (Kind is not PlayerKind.Sound || ShowTimeline)
-            {
-                _sequence = MorseService.GetElements(MorseText, Language, EffectiveCharSpeed, EffectiveWordSpeed);
+            // Always built: it's cheap, and it's where the total duration shown in the controls comes from.
+            _sequence = MorseService.GetElements(MorseText, Language, EffectiveCharSpeed, EffectiveWordSpeed);
 
-                if (Kind is PlayerKind.Light or PlayerKind.Both)
-                {
-                    var elements = new List<MorseElement>();
-                    foreach (var element in _sequence.Value)
-                        elements.Add(element);
-                    _lightElements = elements;
-                }
+            if (Kind is PlayerKind.Light or PlayerKind.Both)
+            {
+                var elements = new List<MorseElement>();
+                foreach (var element in _sequence.Value)
+                    elements.Add(element);
+                _lightElements = elements;
             }
 
             _lightElementsPlayed = 0;
@@ -230,24 +268,47 @@
         }
     }
 
+    Task TogglePlayAsync() => _isPlaying ? PauseAsync() : PlayAsync();
+
     async Task PlayAsync()
     {
-        if (_errorOccurred)
+        if (_errorOccurred || _isPlaying)
             return;
 
         _isPlaying = true;
+        _isPaused = false;
 
         if (Kind is PlayerKind.Sound or PlayerKind.Both)
-            await JS.InvokeVoidAsync("araratMorse.play", _soundId);
+        {
+            var started = await JS.InvokeAsync<bool>("araratMorse.play", _soundId);
+            if (!started)
+            {
+                _isPlaying = false;
+                return;
+            }
+        }
 
         if (Kind is PlayerKind.Light or PlayerKind.Both)
             _ = PlayLightAsync();
+    }
+
+    [JSInvokable]
+    public void OnPlaybackEnded()
+    {
+        if (_lightRunning)
+            return;
+
+        _isPlaying = false;
+        _isPaused = false;
+        StateHasChanged();
     }
 
     async Task PlayLightAsync()
     {
         _lightCts = new CancellationTokenSource();
         var token = _lightCts.Token;
+        var finished = false;
+        _lightRunning = true;
 
         try
         {
@@ -274,6 +335,7 @@
                 }
             }
 
+            finished = true;
             _errorOccurred = false;
         }
         catch (OperationCanceledException)
@@ -287,10 +349,14 @@
         }
         finally
         {
-            _isPlaying = false;
+            _lightRunning = false;
+            _isLightOn = false;
 
-            if (_lightElements is null || _lightElementsPlayed >= _lightElements.Count)
+            // Paused/stopped callers already set their own state; only a natural end resets here.
+            if (finished || _errorOccurred)
             {
+                _isPlaying = false;
+                _isPaused = false;
                 _lightElementsPlayed = 0;
                 _lightElapsedMs = 0;
                 _lightPlayheadRatio = 0;
@@ -332,17 +398,24 @@
 
     async Task PauseAsync()
     {
+        if (!_isPlaying)
+            return;
+
+        _isPlaying = false;
+        _isPaused = true;
+
         if (Kind is PlayerKind.Sound or PlayerKind.Both)
             await JS.InvokeVoidAsync("araratMorse.pause", _soundId);
 
         if (Kind is PlayerKind.Light or PlayerKind.Both)
             _lightCts?.Cancel();
-
-        _isPlaying = false;
     }
 
     public async Task StopAsync()
     {
+        _isPlaying = false;
+        _isPaused = false;
+
         if (Kind is PlayerKind.Sound or PlayerKind.Both)
             await JS.InvokeVoidAsync("araratMorse.stop", _soundId);
 
@@ -357,8 +430,6 @@
             if (TorchEnabled)
                 await SetTorchAsync(false);
         }
-
-        _isPlaying = false;
     }
 
     async Task Download()
@@ -378,9 +449,18 @@
 
         if (Kind is PlayerKind.Sound or PlayerKind.Both)
         {
-            await JS.InvokeVoidAsync("araratMorse.disposePlayer", _soundId,
-                new[] { _waveformPlayheadId, _timelinePlayheadId });
+            try
+            {
+                await JS.InvokeVoidAsync("araratMorse.disposePlayer", _soundId,
+                    new[] { _waveformPlayheadId, _timelinePlayheadId });
+            }
+            catch (JSDisconnectedException)
+            {
+                // page is going away
+            }
         }
+
+        _selfRef?.Dispose();
     }
 
 }
