@@ -1,6 +1,7 @@
 @page "/"
 
 @using AraratMorse.Components.UI
+@using MorseSharp
 
 
 <main class="flex flex-col font-sans">
@@ -31,9 +32,36 @@
 
     [Inject] private AppState State { get; set; } = default!;
 
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
     #endregion
 
+    // A shared link: ?lang=Kurdish&mode=encode&text=...
+    [SupplyParameterFromQuery(Name = "text")] public string? SharedText { get; set; }
+
+    [SupplyParameterFromQuery(Name = "mode")] public string? SharedMode { get; set; }
+
+    [SupplyParameterFromQuery(Name = "lang")] public string? SharedLanguage { get; set; }
+
     #region Methods
+
+    // After the first render rather than in OnInitialized: LanguageFrame resets the direction
+    // (and with it the input) when it initializes, which would wipe the shared conversion.
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender || string.IsNullOrEmpty(SharedText))
+            return;
+
+        var language = Enum.TryParse<Language>(SharedLanguage, ignoreCase: true, out var parsed) && Enum.IsDefined(parsed)
+            ? parsed
+            : State.Language;
+        var isEncoding = !string.Equals(SharedMode, "decode", StringComparison.OrdinalIgnoreCase);
+
+        State.Restore(SharedText, isEncoding, language);
+
+        // Drop the query so a refresh or an edit doesn't keep snapping back to the shared text.
+        Navigation.NavigateTo(Navigation.BaseUri, replace: true);
+    }
 
     void OpenSetting()
     {

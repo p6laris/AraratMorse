@@ -20,6 +20,8 @@
 </div>
 
 
+@implements IDisposable
+
 @code {
 
     [Inject] private AppState State { get; set; } = default!;
@@ -27,7 +29,13 @@
     protected override void OnInitialized()
     {
         State.SetDirection(true);
+        State.Changed += OnStateChanged;
     }
+
+    // Direction can also change from outside this bar (history, shared links).
+    void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => State.Changed -= OnStateChanged;
 
     public void ToggleConverter()
     {

@@ -1,0 +1,124 @@
+@implements IDisposable
+
+<div class="relative">
+    <button @onclick="Toggle" type="button" title="Recent conversions" aria-expanded="@(_open ? "true" : "false")"
+            class="text-xs text-gray-500 hover:text-black flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M12 3a9 9 0 1 1-8.95 10h2.02A7 7 0 1 0 7.05 7.05L9 9H3V3l2.64 2.64A8.97 8.97 0 0 1 12 3Zm-1 4h2v4.59l3.2 3.2l-1.41 1.42L11 12.41V7Z"/>
+        </svg>
+        History
+    </button>
+
+    @if (_open)
+    {
+        <div @onclick="Close" class="fixed inset-0 z-20"></div>
+        <div class="absolute top-6 left-0 z-30 bg-white text-black border border-gray-200 rounded-xl shadow-lg w-72 sm:w-80 text-sm overflow-hidden">
+            @if (History.Entries.Count == 0)
+            {
+                <p class="text-gray-400 text-xs p-4">Your conversions show up here, so you can bring one back with a tap.</p>
+            }
+            else
+            {
+                <ul class="max-h-72 overflow-y-auto divide-y divide-gray-100">
+                    @foreach (var entry in History.Entries)
+                    {
+                        <li>
+                            <button type="button" @onclick="() => Restore(entry)"
+                                    class="w-full text-start px-4 py-2.5 hover:bg-gray-50 transition-colors flex flex-col gap-0.5">
+                                <span dir="auto" class="truncate font-medium @(entry.IsEncoding ? "" : "font-mono")">@entry.Input</span>
+                                <span class="text-xs text-gray-500">
+                                    @entry.Language · @(entry.IsEncoding ? "Text → Morse" : "Morse → Text") · @Ago(entry.At)
+                                </span>
+                            </button>
+                        </li>
+                    }
+                </ul>
+                <div class="border-t border-gray-100 px-4 py-2 flex justify-end">
+                    <button type="button" @onclick="ClearAsync" class="text-xs text-rose-500 hover:text-rose-600">Clear history</button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+
+    [Inject] private AppState State { get; set; } = default!;
+
+    [Inject] private ConversionHistory History { get; set; } = default!;
+
+    // Long enough that a word being typed counts as one entry, short enough that a quick
+    // conversion followed by closing the tab still gets saved.
+    static readonly TimeSpan RecordDelay = TimeSpan.FromSeconds(1.2);
+
+    bool _open;
+    CancellationTokenSource? _pending;
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.Changed += OnStateChanged;
+        History.Changed += OnHistoryChanged;
+        await History.EnsureLoadedAsync();
+    }
+
+    void OnHistoryChanged() => InvokeAsync(StateHasChanged);
+
+    void OnStateChanged()
+    {
+        _pending?.Cancel();
+
+        if (State.Input is not { Length: > 0 } input || State.Output is not { Length: > 0 } output || State.Error is not null)
+            return;
+
+        var isEncoding = State.IsEncoding;
+        var language = State.Language;
+        var cts = _pending = new CancellationTokenSource();
+
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                await Task.Delay(RecordDelay, cts.Token);
+                await History.RecordAsync(input.Trim(), output, isEncoding, language);
+            }
+            catch (OperationCanceledException)
+            {
+                // superseded by a newer keystroke
+            }
+        });
+    }
+
+    void Toggle() => _open = !_open;
+
+    void Close() => _open = false;
+
+    void Restore(HistoryEntry entry)
+    {
+        _open = false;
+        State.Restore(entry.Input, entry.IsEncoding, entry.Language);
+    }
+
+    async Task ClearAsync()
+    {
+        await History.ClearAsync();
+        _open = false;
+    }
+
+    static string Ago(DateTimeOffset at)
+    {
+        var elapsed = DateTimeOffset.Now - at;
+        if (elapsed.TotalMinutes < 1) return "just now";
+        if (elapsed.TotalHours < 1) return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalDays < 1) return $"{(int)elapsed.TotalHours}h ago";
+        if (elapsed.TotalDays < 7) return $"{(int)elapsed.TotalDays}d ago";
+        return at.ToLocalTime().ToString("d MMM");
+    }
+
+    public void Dispose()
+    {
+        _pending?.Cancel();
+        State.Changed -= OnStateChanged;
+        History.Changed -= OnHistoryChanged;
+    }
+
+}

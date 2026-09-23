@@ -14,6 +14,7 @@ builder.Services.AddSingleton<MorseService>();
 builder.Services.AddSingleton<AppState>();
 builder.Services.AddSingleton<MorseSettings>();
 builder.Services.AddSingleton<KochStats>();
+builder.Services.AddSingleton<ConversionHistory>();
 builder.Services.AddClipboard();
 builder.Services.AddTransient<IValidator<Settings>, SettingsValidator>();
 

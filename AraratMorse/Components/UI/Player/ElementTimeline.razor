@@ -1,59 +1,86 @@
 @using System.Globalization
 @using MorseSharp
 
-<div id="@TrackId" class="relative w-full h-10 bg-gray-900 rounded-lg flex items-stretch overflow-hidden">
+<div class="w-full h-9 bg-neutral-900 rounded-xl overflow-hidden px-3">
+<div id="@TrackId" class="relative w-full h-full flex items-stretch">
     @foreach (var item in _items)
     {
         @if (item.IsGap)
         {
-            <div class="h-full" style="width:@(item.WidthPercent.ToString(CultureInfo.InvariantCulture))%"></div>
+            <div class="h-full" style="width:@Pct(item.WidthPercent)"></div>
         }
         else
         {
-            <div class="timeline-char h-full flex gap-0.5 px-0.5 transition-colors duration-100 @(IsActive(item) ? "bg-yellow-400/30" : "")"
-                 data-start="@item.Start.ToString(CultureInfo.InvariantCulture)"
-                 data-end="@item.End.ToString(CultureInfo.InvariantCulture)"
-                 style="width:@(item.WidthPercent.ToString(CultureInfo.InvariantCulture))%">
+            @* One group per character, so the playing character can light up as a whole. *@
+            <div class="timeline-char h-full flex items-center rounded-md transition-colors duration-100 @(IsActive(item) ? ActiveClass : "")"
+                 data-start="@Num(item.Start)" data-end="@Num(item.End)" style="width:@Pct(item.WidthPercent)">
                 @foreach (var mark in item.Marks)
                 {
-                    <div class="h-full rounded-sm @(mark.KeyDown ? "bg-white" : "bg-transparent")"
-                         style="width:@(mark.WidthPercent.ToString(CultureInfo.InvariantCulture))%"></div>
+                    <div class="h-2.5 rounded-full @(mark.KeyDown ? "bg-white" : "")" style="width:@Pct(mark.WidthPercent)"></div>
                 }
             </div>
         }
     }
 
-    <div id="@PlayheadId" class="absolute top-0 bottom-0 w-0.5 bg-rose-500 pointer-events-none"
-         style="left:@((PlayheadRatio ?? 0).ToString(CultureInfo.InvariantCulture))%"></div>
+    @* Progress overlay; driven by JS for audio, or by PlayheadRatio for the light player. *@
+    <div id="@PlayheadId" class="absolute inset-y-0 left-0 bg-white/10 border-r-2 border-rose-500 pointer-events-none"
+         style="width:@Pct(PlayheadRatio ?? 0);opacity:@((PlayheadRatio ?? 0) > 0 ? "1" : "0")"></div>
+</div>
 </div>
 
 @code {
+
+    /// <summary>The highlight on the character under the playhead. JS toggles the same class.</summary>
+    public const string ActiveClass = "bg-white/15";
 
     [Parameter, EditorRequired] public string Id { get; set; } = default!;
 
     [Parameter] public MorseElementSequence? Sequence { get; set; }
 
     /// <summary>
-    /// Playhead position as a 0-100 percentage. When set (e.g. driven element-by-element from a
-    /// light loop), the playhead and active-character highlight render straight from this value.
-    /// When left null, a JS-driven sync (audio.currentTime based) is expected to move the
-    /// playhead and toggle the highlight itself.
+    /// Playhead position as a 0-100 percentage of the sounding part (see <see cref="SoundingDuration"/>).
+    /// When set (the light player), the playhead and highlight render from it; when null, the
+    /// audio player's JS sync moves them instead.
     /// </summary>
     [Parameter] public double? PlayheadRatio { get; set; }
 
     public string TrackId => $"{Id}-track";
     public string PlayheadId => $"{Id}-playhead";
 
+    /// <summary>The sequence up to the end of its last tone — every sequence ends in a gap that
+    /// would otherwise take up the right side of the strip for nothing.</summary>
+    public static TimeSpan SoundingDuration(MorseElementSequence sequence)
+    {
+        var total = TimeSpan.Zero;
+        var soundingEnd = TimeSpan.Zero;
+        foreach (var element in sequence)
+        {
+            total += element.Duration;
+            if (element.KeyDown)
+                soundingEnd = total;
+        }
+        return soundingEnd;
+    }
+
     record Mark(double WidthPercent, bool KeyDown);
 
     record Item(bool IsGap, double WidthPercent, double Start, double End, List<Mark> Marks);
 
     List<Item> _items = [];
+    MorseElementSequence? _built;
 
-    protected override void OnParametersSet() => BuildItems();
+    protected override void OnParametersSet()
+    {
+        // Only rebuild for a new sequence; the light player re-renders this on every element.
+        if (_built is { } built && Sequence is { } current && built.Equals(current))
+            return;
+
+        _built = Sequence;
+        BuildItems();
+    }
 
     bool IsActive(Item item) =>
-        PlayheadRatio is { } ratio && ratio / 100 >= item.Start && ratio / 100 < item.End;
+        PlayheadRatio is double ratio && ratio > 0 && ratio / 100 >= item.Start && ratio / 100 < item.End;
 
     void BuildItems()
     {
@@ -62,7 +89,7 @@
         if (Sequence is not { } sequence)
             return;
 
-        var totalMs = sequence.Duration.TotalMilliseconds;
+        var totalMs = SoundingDuration(sequence).TotalMilliseconds;
         if (totalMs <= 0)
             return;
 
@@ -89,6 +116,9 @@
 
         foreach (var element in sequence)
         {
+            if (elapsedMs >= totalMs)
+                break; // the trailing gap
+
             var durationMs = element.Duration.TotalMilliseconds;
 
             switch (element.Kind)
@@ -114,7 +144,11 @@
             elapsedMs += durationMs;
         }
 
-        FlushChar(elapsedMs);
+        FlushChar(Math.Min(elapsedMs, totalMs));
     }
+
+    static string Num(double value) => value.ToString(CultureInfo.InvariantCulture);
+
+    static string Pct(double value) => value.ToString(CultureInfo.InvariantCulture) + "%";
 
 }

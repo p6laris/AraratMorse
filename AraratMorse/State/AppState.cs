@@ -75,6 +75,16 @@ public class AppState(MorseService morse)
         Changed?.Invoke();
     }
 
+    /// <summary>Puts a whole conversion back: language, direction and input, as a history entry
+    /// or a shared link describes it.</summary>
+    public void Restore(string input, bool isEncoding, Language language)
+    {
+        Language = language;
+        IsEncoding = isEncoding;
+        ActivePanel = Panel.None;
+        Translate(input);
+    }
+
     public void ShowPanel(Panel panel)
     {
         ActivePanel = panel;

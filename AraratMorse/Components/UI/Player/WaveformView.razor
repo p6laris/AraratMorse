@@ -1,17 +1,20 @@
 @using System.Globalization
+@using System.Text
 
-<div class="relative w-full h-full bg-black rounded-lg overflow-hidden">
-    <svg viewBox="0 0 @Columns 100" preserveAspectRatio="none" class="w-full h-full">
-        @for (var i = 0; i < _peaks.Length; i++)
-        {
-            var (min, max) = _peaks[i];
-            var y = (50 - max * 50).ToString(CultureInfo.InvariantCulture);
-            var height = Math.Max(0.5, (max - min) * 50).ToString(CultureInfo.InvariantCulture);
-            <rect x="@i" y="@y" width="1" height="@height" fill="white"/>
-        }
-    </svg>
+<div class="relative w-full h-full bg-neutral-900 rounded-xl overflow-hidden">
+    @* Inset so the first and last tones don't run into the rounded corners; the progress
+       overlay shares the inset so it lines up with the drawing. *@
+    <div class="absolute inset-y-0 inset-x-3">
+        <svg viewBox="0 0 @_columns 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full">
+            <line x1="0" y1="50" x2="@_columns" y2="50" stroke="white" stroke-opacity="0.12" stroke-width="1" vector-effect="non-scaling-stroke"/>
+            <path d="@_envelope" fill="white" fill-opacity="0.92"/>
+        </svg>
 
-    <div id="@PlayheadId" class="absolute top-0 bottom-0 w-0.5 bg-rose-500 pointer-events-none" style="left:0%"></div>
+        @* Progress: a soft fill over what's been played, with a thin edge where the playhead is.
+           JS sets its width and hides it while the audio is at rest. *@
+        <div id="@PlayheadId" class="absolute inset-y-0 left-0 bg-white/10 border-r-2 border-rose-500 pointer-events-none"
+             style="width:0%;opacity:0"></div>
+    </div>
 </div>
 
 @code {
@@ -20,17 +23,74 @@
 
     [Parameter] public byte[]? WavBytes { get; set; }
 
-    [Parameter] public int Columns { get; set; } = 200;
+    /// <summary>How much of the audio to draw, from the start. The audio ends in a silent gap
+    /// after the last tone; drawing it would leave the right side of short clips empty.</summary>
+    [Parameter] public double VisibleFraction { get; set; } = 1;
+
+    const int MinColumns = 160;
+    const int MaxColumns = 1200;
 
     public string PlayheadId => $"{Id}-playhead";
 
-    (float Min, float Max)[] _peaks = [];
+    int _columns = MinColumns;
+    string _envelope = "";
+    byte[]? _lastBytes;
+    double _lastFraction = -1;
 
     protected override void OnParametersSet()
     {
-        _peaks = WavBytes is { Length: > 0 }
-            ? AraratMorse.State.WavSamples.Downsample(AraratMorse.State.WavSamples.Read(WavBytes), Columns)
-            : [];
+        if (ReferenceEquals(WavBytes, _lastBytes) && VisibleFraction == _lastFraction)
+            return;
+
+        _lastBytes = WavBytes;
+        _lastFraction = VisibleFraction;
+        _envelope = BuildEnvelope();
     }
+
+    // One closed shape, mirrored around the centre line, instead of a bar per column: bars
+    // alias into stripes when the SVG is stretched, a single path stays solid.
+    string BuildEnvelope()
+    {
+        if (WavBytes is not { Length: > 0 })
+            return "";
+
+        var samples = AraratMorse.State.WavSamples.Read(WavBytes);
+        var visible = (int)Math.Clamp(samples.Length * VisibleFraction, 1, samples.Length);
+
+        // Roughly 20ms per column at the standard 11 kHz rate: fine enough that the shortest
+        // gap (between the dots of a letter) never falls inside a single column, on a clip of
+        // any length.
+        _columns = Math.Clamp(visible / 220, MinColumns, MaxColumns);
+        var peaks = AraratMorse.State.WavSamples.Downsample(samples.AsSpan(0, visible), _columns);
+        if (peaks.Length == 0)
+            return "";
+
+        var raw = peaks.Select(p => Math.Min(1f, Math.Max(Math.Abs(p.Min), Math.Abs(p.Max)))).ToArray();
+
+        // The generated signal is on/off keying at one volume, so draw it that way: a column is
+        // on (at the loudest level) or off. Drawing peaks literally leaves slivers wherever a
+        // column only catches a tone's fade, and a jittery top where it spans a cycle or two.
+        var threshold = raw.Max() * 0.25f;
+        var heights = raw.Select(v => v > threshold && v > 0 ? 32f : 0f).ToArray();
+
+        // Flat steps, one per column: Morse is on/off keying, and lines between column centres
+        // turn each tone's short fade into a pointed slant.
+        var sb = new StringBuilder("M0 50");
+        for (var i = 0; i < heights.Length; i++)
+        {
+            var y = Num(50 - heights[i]);
+            sb.Append(" L").Append(i).Append(' ').Append(y).Append(" L").Append(i + 1).Append(' ').Append(y);
+        }
+        sb.Append(" L").Append(heights.Length).Append(" 50");
+        for (var i = heights.Length - 1; i >= 0; i--)
+        {
+            var y = Num(50 + heights[i]);
+            sb.Append(" L").Append(i + 1).Append(' ').Append(y).Append(" L").Append(i).Append(' ').Append(y);
+        }
+        sb.Append(" Z");
+        return sb.ToString();
+    }
+
+    static string Num(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 
 }

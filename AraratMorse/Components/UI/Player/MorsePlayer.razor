@@ -2,7 +2,7 @@
 @using MorseSharp.Audio
 @implements IAsyncDisposable
 
-<div class="flex flex-col gap-3 @(Size == PlayerSize.Full ? "w-full h-full" : "w-full")">
+<div class="flex flex-col gap-3 @(Size == PlayerSize.Full ? "w-full h-full" : "w-full") @(Size == PlayerSize.Full && Kind == PlayerKind.Sound ? "justify-center" : "")">
 
     @if (_errorOccurred)
     {
@@ -11,10 +11,12 @@
     else
     {
         @* Visualization *@
-        <div class="@(Size == PlayerSize.Full ? "flex-1 min-h-0" : "h-24") w-full relative rounded-xl overflow-hidden ring-1 @(OnDark ? "ring-white/10" : "ring-black/5")">
+        @* Full size: the lamp takes the whole sheet, but a waveform that tall just reads as a
+           barcode, so sound gets a fixed-height strip, centred together with its controls. *@
+        <div class="@VizSizeClass w-full relative rounded-xl overflow-hidden ring-1 @(OnDark ? "ring-white/10" : "ring-black/5")">
             @if (Kind is PlayerKind.Sound or PlayerKind.Both)
             {
-                <WaveformView Id="@_soundId" WavBytes="_wavBytes"/>
+                <WaveformView Id="@_soundId" WavBytes="_wavBytes" VisibleFraction="VisibleFraction"/>
             }
             @if (Kind is PlayerKind.Light or PlayerKind.Both)
             {
@@ -145,6 +147,13 @@
     // Full-size players live on the black bottom sheets; inline ones sit on white cards.
     bool OnDark => Size == PlayerSize.Full;
 
+    string VizSizeClass => (Size, Kind) switch
+    {
+        (PlayerSize.Inline, _) => "h-20",
+        (_, PlayerKind.Sound) => "h-48 sm:h-64 shrink-0",
+        _ => "flex-1 min-h-0"
+    };
+
     string GhostButton => "w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed "
                           + (OnDark ? "text-white/80 hover:bg-white/10" : "text-gray-600 hover:bg-gray-100");
 
@@ -171,6 +180,13 @@
     bool CanStop => _isPlaying || _isPaused;
 
     TimeSpan TotalDuration => _sequence?.Duration ?? TimeSpan.Zero;
+
+    // The part that makes a sound: the drawings stop here instead of at the trailing gap.
+    TimeSpan _soundingDuration;
+
+    double VisibleFraction => TotalDuration.TotalMilliseconds > 0
+        ? Math.Clamp(_soundingDuration.TotalMilliseconds / TotalDuration.TotalMilliseconds, 0.01, 1)
+        : 1;
 
     List<MorseElement>? _lightElements;
     int _lightElementsPlayed;
@@ -227,10 +243,11 @@
 
             await JS.InvokeVoidAsync("araratMorse.setSource", _soundId, _wavBytes);
             await JS.InvokeVoidAsync("araratMorse.watch", _soundId, _selfRef, _elapsedId);
-            await JS.InvokeVoidAsync("araratMorse.attachPlayhead", _soundId, _waveformPlayheadId, (string?)null);
+            var visibleSeconds = _soundingDuration.TotalSeconds;
+            await JS.InvokeVoidAsync("araratMorse.attachPlayhead", _soundId, _waveformPlayheadId, (string?)null, visibleSeconds);
 
             if (ShowTimeline)
-                await JS.InvokeVoidAsync("araratMorse.attachPlayhead", _soundId, _timelinePlayheadId, _timelineTrackId);
+                await JS.InvokeVoidAsync("araratMorse.attachPlayhead", _soundId, _timelinePlayheadId, _timelineTrackId, visibleSeconds);
         }
     }
 
@@ -255,6 +272,7 @@
 
             // Always built: it's cheap, and it's where the total duration shown in the controls comes from.
             _sequence = MorseService.GetElements(MorseText, Language, EffectiveCharSpeed, EffectiveWordSpeed);
+            _soundingDuration = ElementTimeline.SoundingDuration(_sequence.Value);
 
             if (Kind is PlayerKind.Light or PlayerKind.Both)
             {
@@ -385,8 +403,8 @@
         _lightElapsedMs += element.Duration.TotalMilliseconds;
         ++_lightElementsPlayed;
 
-        var totalMs = _sequence?.Duration.TotalMilliseconds ?? 0;
-        _lightPlayheadRatio = totalMs > 0 ? _lightElapsedMs / totalMs * 100 : 0;
+        var soundingMs = _soundingDuration.TotalMilliseconds;
+        _lightPlayheadRatio = soundingMs > 0 ? Math.Min(100, _lightElapsedMs / soundingMs * 100) : 0;
 
         if (TorchEnabled)
             _ = SetTorchAsync(element.KeyDown);

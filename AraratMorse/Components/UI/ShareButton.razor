@@ -1,0 +1,76 @@
+@implements IDisposable
+
+<button @onclick="ShareAsync" type="button" disabled="@(!CanShare)" title="@Title"
+        class="text-xs text-gray-500 hover:text-black flex items-center gap-1 disabled:opacity-40 disabled:hover:text-gray-500 disabled:cursor-not-allowed">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11A2.99 2.99 0 0 0 21 5a3 3 0 1 0-5.91.7L8.04 9.81A2.99 2.99 0 0 0 3 12a2.99 2.99 0 0 0 5.04 2.19l7.12 4.16c-.05.21-.08.43-.08.65A2.92 2.92 0 1 0 18 16.08Z"/>
+    </svg>
+    <span aria-live="polite">@(_status ?? "Share")</span>
+</button>
+
+@code {
+
+    [Inject] private AppState State { get; set; } = default!;
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    // Browsers and chat apps start truncating links somewhere past 2,000 characters.
+    const int MaxShareLength = 1500;
+
+    string? _status;
+    CancellationTokenSource? _resetStatus;
+
+    bool CanShare => State.Input is { Length: > 0 and <= MaxShareLength } && State.Error is null;
+
+    string Title => State.Input is { Length: > MaxShareLength }
+        ? "Too long to share as a link"
+        : CanShare ? "Copy a link that opens this conversion" : "Type something to share first";
+
+    protected override void OnInitialized() => State.Changed += OnStateChanged;
+
+    void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    async Task ShareAsync()
+    {
+        if (!CanShare)
+            return;
+
+        var url = Navigation.GetUriWithQueryParameters(Navigation.BaseUri, new Dictionary<string, object?>
+        {
+            ["lang"] = State.Language.ToString(),
+            ["mode"] = State.IsEncoding ? "encode" : "decode",
+            ["text"] = State.Input
+        });
+
+        var result = await JS.InvokeAsync<string>("araratMorseShare.share", url, "Ararat Morse");
+        _status = result switch
+        {
+            "copied" => "Link copied",
+            "shared" => "Shared",
+            "failed" => "Couldn't copy",
+            _ => null
+        };
+        StateHasChanged();
+
+        _resetStatus?.Cancel();
+        var cts = _resetStatus = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(2000, cts.Token);
+            _status = null;
+        }
+        catch (OperationCanceledException)
+        {
+            // a newer share replaced this status
+        }
+    }
+
+    public void Dispose()
+    {
+        _resetStatus?.Cancel();
+        State.Changed -= OnStateChanged;
+    }
+
+}

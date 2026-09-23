@@ -2,7 +2,11 @@
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <RunAOTCompilation>true</RunAOTCompilation>
+        <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
     </PropertyGroup>
+    <ItemGroup>
+        <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
+    </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Blazored.FluentValidation" Version="2.2.0" />
         <PackageReference Include="ClipLazor" Version="4.0.0" />

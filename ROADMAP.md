@@ -549,11 +549,34 @@ Smaller additions:
       instead of opening a panel that errors.
       (They're `disabled` with a tooltip saying why: "Type something to convert first", or "Fix the
       input first" when there's an error. The four tool buttons also gained `aria-label`s.)
-- [ ] A proper favicon/app icon set and a manifest so it installs nicely as a PWA; it's a
+- [x] A proper favicon/app icon set and a manifest so it installs nicely as a PWA; it's a
       converter people reach for on phones.
-- [ ] Shareable links: encode input, direction and language into the URL query so a conversion
+      (The dark `AraratMorse_icon` from `assets/`. `wwwroot/icons/` has an SVG favicon, a 32px
+      PNG fallback, 192/512 PNGs, full-bleed maskable 192/512 versions with the glyph at 80% so it
+      stays inside Android's safe zone, and a 180px apple-touch icon. All were drawn from the
+      SVG's geometry, so every size is crisp. `manifest.webmanifest` is linked with a matching
+      `theme-color`. The `service-worker.js` that `index.html` already registered, and which
+      404'd on every load, now exists, with the template's offline worker as its published
+      version. That worker resolves paths against its own folder, because the app lives under
+      `/AraratMorse/` on Pages. It also skips the integrity check for `.html`, because the deploy's
+      `sed` rewrites `<base href>` after publish and the hashes stop matching. Along the way: the
+      page title typo is fixed, and the stale `img/favicon.ico` is gone. So is the `<script>` tag
+      for ClipLazor's `clipboard.min.js`: ClipLazor 4 imports that ES module itself, and loading
+      it as a classic script was the long-standing "Unexpected token 'export'" console error.)
+- [x] Shareable links: encode input, direction and language into the URL query so a conversion
       can be sent to someone as a link and the app restores it on load.
-- [ ] Conversion history: the last N conversions in localStorage, one tap to bring one back.
+      (`?lang=Kurdish&mode=encode&text=...`. The Share button in the converter toolbar opens the
+      system share sheet where there is one and otherwise copies the link. It's disabled for
+      empty, invalid or over-1500-character input. `Home` reads the query with
+      `[SupplyParameterFromQuery]` and applies it after the first render, because `LanguageFrame`
+      resets the input when it initializes. It then replaces the URL with the bare base, so edits
+      and refreshes don't snap back to the shared text.)
+- [x] Conversion history: the last N conversions in localStorage, one tap to bring one back.
+      (`ConversionHistory` keeps 20 entries under `araratmorse.history`. It records 1.2s after
+      typing stops, and only valid conversions. A run of growing or shrinking inputs collapses
+      into its latest entry, so typing a sentence doesn't leave one entry per pause. The History
+      popover restores language, direction and input in one step through `AppState.Restore`.
+      `LanguageFrame` now listens for state changes, so its direction arrow follows a restore.)
 - [x] Keyboard shortcuts: Ctrl+Enter converts, Ctrl+C on the output area copies (ClipLazor is
       already there), Space plays/pauses whichever player is open.
       (In `Sheets.ts`. Space toggles the open sheet's player, or the page's only player, and "/"

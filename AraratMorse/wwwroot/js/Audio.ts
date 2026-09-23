@@ -129,7 +129,10 @@ namespace AraratMorse {
         // Moves a playhead element left-to-right in step with audio.currentTime, and (when a
         // timeline container is given) toggles a highlight on whichever .timeline-char sits
         // under it — all without a per-frame round trip to Blazor.
-        attachPlayhead(audioId: string, playheadId: string, timelineContainerId: string | null): void {
+        // visibleSeconds is how much of the audio the drawing covers: it stops at the last tone,
+        // before the trailing silence, so the playhead is measured against that and parks at the
+        // end while the silence plays out.
+        attachPlayhead(audioId: string, playheadId: string, timelineContainerId: string | null, visibleSeconds: number): void {
             this.detachPlayhead(playheadId);
 
             const audio = this.getAudio(audioId);
@@ -146,14 +149,19 @@ namespace AraratMorse {
             }};
 
             const step = () => {
-                const ratio = audio.duration > 0 ? audio.currentTime / audio.duration : 0;
+                const span = visibleSeconds > 0 ? visibleSeconds : audio.duration;
+                const ratio = span > 0 ? audio.currentTime / span : 0;
                 const clamped = Math.min(1, Math.max(0, ratio));
-                playhead.style.left = `${clamped * 100}%`;
+                // At rest (never started, stopped, or finished and rewound) show a clean strip.
+                const atRest = audio.paused && audio.currentTime === 0;
+
+                playhead.style.width = `${clamped * 100}%`;
+                playhead.style.opacity = atRest || clamped === 0 ? "0" : "1";
 
                 for (const el of chars) {
                     const start = parseFloat(el.dataset.start || "0");
                     const end = parseFloat(el.dataset.end || "0");
-                    el.classList.toggle("bg-yellow-400/30", clamped >= start && clamped < end);
+                    el.classList.toggle("bg-white/15", !atRest && clamped >= start && clamped < end);
                 }
 
                 state.rafId = (!audio.paused && !audio.ended) ? requestAnimationFrame(step) : null;
@@ -373,6 +381,26 @@ namespace AraratMorse {
         window['araratMorseSidetone'] = new Sidetone();
         window['araratMorseMotion'] = {
             prefersReduced: (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        };
+        window['araratMorseShare'] = {
+            // The system share sheet where there is one (phones), otherwise the clipboard.
+            // Resolves to what happened, so the button can say so.
+            share: async (url: string, title: string): Promise<string> => {
+                if (navigator.share) {
+                    try {
+                        await navigator.share({title, url});
+                        return "shared";
+                    } catch (e) {
+                        if ((e as DOMException)?.name === "AbortError") return "cancelled";
+                    }
+                }
+                try {
+                    await navigator.clipboard.writeText(url);
+                    return "copied";
+                } catch {
+                    return "failed";
+                }
+            }
         };
     }
 }
