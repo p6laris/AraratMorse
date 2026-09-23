@@ -1,8 +1,6 @@
 using AraratMorse.Components;
-using AraratMorse.Models;
 using AraratMorse.State;
 using ClipLazor.Extensions;
-using FluentValidation;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
@@ -16,6 +14,5 @@ builder.Services.AddSingleton<MorseSettings>();
 builder.Services.AddSingleton<KochStats>();
 builder.Services.AddSingleton<ConversionHistory>();
 builder.Services.AddClipboard();
-builder.Services.AddTransient<IValidator<Settings>, SettingsValidator>();
 
 await builder.Build().RunAsync();

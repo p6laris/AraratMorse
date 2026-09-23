@@ -15,8 +15,9 @@ public static class FriendlyErrors
             "Try another language, or add the character on the Custom Alphabet page.",
             ex.Message),
 
+        // The exception carries the name without brackets; show it the way it was typed.
         ProsignNotPresentedException e => new(
-            $"{e.Prosign} isn't a prosign in {e.AlphabetName}.",
+            $"<{e.Prosign.Trim('<', '>')}> isn't a prosign in {e.AlphabetName}.",
             "Open Prosigns to see the ones you can use.",
             ex.Message),
 

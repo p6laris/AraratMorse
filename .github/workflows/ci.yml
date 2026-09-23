@@ -44,3 +44,6 @@ jobs:
       # several-minute AOT compile that only the deploy needs.
       - name: Build
         run: dotnet build AraratMorse.sln -c Release -warnaserror --nologo
+
+      - name: Test
+        run: dotnet test AraratMorse.sln -c Release --no-build --nologo

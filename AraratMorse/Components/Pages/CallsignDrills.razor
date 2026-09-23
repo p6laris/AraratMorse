@@ -257,7 +257,7 @@
             var sent = _currentText.ToUpperInvariant();
             var typed = new string(_typed.Where(c => !char.IsWhiteSpace(c)).Select(char.ToUpperInvariant).ToArray());
 
-            _graded = Grade(sent.Select(c => c.ToString()).ToArray(), typed.Select(c => c.ToString()).ToArray());
+            _graded = CopyGrader.GradeCharacters(sent, typed);
             _lastCorrect = sent == typed;
             _callsTotal++;
             if (_lastCorrect)
@@ -265,55 +265,13 @@
         }
         else
         {
-            _graded = Grade(Words(_currentText), Words(_typed));
+            _graded = CopyGrader.GradeWords(_currentText, _typed);
             _lastWordsCorrect = _graded.Count(g => g.Matched);
             _qsoWordsCorrect += _lastWordsCorrect;
             _qsoWordsTotal += _graded.Count;
         }
 
         _revealed = true;
-    }
-
-    static string[] Words(string text) =>
-        text.ToUpperInvariant().Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries);
-
-    // Brackets are optional when typing a prosign: "SK" counts for "<SK>".
-    static string Normalize(string token) => token.Trim('<', '>');
-
-    // Marks which sent tokens appear, in order, in what was typed (longest common subsequence),
-    // so one dropped or extra word doesn't mark everything after it wrong the way a
-    // positional comparison would.
-    static List<(string Token, bool Matched)> Grade(string[] sent, string[] typed)
-    {
-        var lcs = new int[sent.Length + 1, typed.Length + 1];
-        for (var i = sent.Length - 1; i >= 0; i--)
-        for (var j = typed.Length - 1; j >= 0; j--)
-            lcs[i, j] = Normalize(sent[i]) == Normalize(typed[j])
-                ? lcs[i + 1, j + 1] + 1
-                : Math.Max(lcs[i + 1, j], lcs[i, j + 1]);
-
-        var result = new List<(string, bool)>(sent.Length);
-        int s = 0, t = 0;
-        while (s < sent.Length)
-        {
-            if (t < typed.Length && Normalize(sent[s]) == Normalize(typed[t]))
-            {
-                result.Add((sent[s], true));
-                s++;
-                t++;
-            }
-            else if (t < typed.Length && lcs[s, t + 1] > lcs[s + 1, t])
-            {
-                t++;
-            }
-            else
-            {
-                result.Add((sent[s], false));
-                s++;
-            }
-        }
-
-        return result;
     }
 
 }

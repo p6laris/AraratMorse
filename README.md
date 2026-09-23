@@ -72,12 +72,18 @@ npx tailwindcss -i Style/style.css -o wwwroot/css/app.css --minify
 ### Deployment
 
 Pushing to `main` publishes the app and deploys it to GitHub Pages. Pull requests and pushes to
-`dev` run a build that treats warnings as errors and checks the stylesheet.
+`dev` run a build that treats warnings as errors, check the stylesheet, and run the tests.
 
 ## Contributing
 
-Fork the repository, make your changes on a branch, and open a pull request. `ROADMAP.md` lists
-what's planned and why.
+Fork the repository, make your changes on a branch, and open a pull request. Run the tests
+before you push:
+
+```bash
+dotnet test
+```
+
+`ROADMAP.md` lists what's planned and why.
 
 ## License
 

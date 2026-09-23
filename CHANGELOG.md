@@ -9,7 +9,8 @@ A rebuild on .NET 10 and MorseSharp 6, and the practice features that MorseSharp
 ### Platform
 - .NET 10 and MorseSharp 6.1 (from 4.1.4), keeping ahead-of-time compilation. Timing is now
   correct at every speed, and the generated audio no longer clicks.
-- Fluxor removed in favour of a small `AppState` service.
+- Fluxor, Newtonsoft.Json and FluentValidation removed; state lives in a small `AppState`
+  service. The download is 35% smaller (12.2 to 7.95 MB gzip) with half the assemblies (73 to 37).
 - Installable as a PWA, with an icon set, a web manifest, and an offline service worker in
   published builds.
 
@@ -46,9 +47,13 @@ A rebuild on .NET 10 and MorseSharp 6, and the practice features that MorseSharp
 - Audio is no longer rebuilt as a data URI on every render.
 - The console error from loading ClipLazor's module as a classic script is gone.
 
+- The unknown-prosign error keeps the brackets, as in "<ZZ> isn't a prosign".
+- Settings error messages update as you fix the values, instead of waiting for the next Save.
+
 ### CI
-- Pull requests and pushes to `dev` build with warnings as errors and check that `app.css` is
-  regenerated. The deploy verifies its base-href rewrite and serves the app as `404.html`.
+- Pull requests and pushes to `dev` build with warnings as errors, check that `app.css` is
+  regenerated, and run the `AraratMorse.Tests` unit tests. The deploy verifies its base-href
+  rewrite and serves the app as `404.html`.
 
 ## [1.0.0]
 

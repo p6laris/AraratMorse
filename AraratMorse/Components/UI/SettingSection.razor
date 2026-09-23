@@ -25,24 +25,22 @@
         </button>
     </div>
 
-    <EditForm Model="@settings" OnValidSubmit="@(async() => await CloseSectionAsync())">
-
-        <FluentValidationValidator @ref=validator DisableAssemblyScanning=true />
+    <EditForm EditContext="editContext" OnValidSubmit="@(async() => await CloseSectionAsync())">
 
         <fieldset disabled="@(!IsCustom)" class="flex flex-col items-center">
             <div class="flex flex-col items-center mb-2">
                 <p>Word Per Minute</p>
-                <input @bind-value=@settings.WordSpeed class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none disabled:opacity-50" type="number"/>
+                <input @bind-value=@settings.WordSpeed @bind-value:after="RevalidateIfShowing" class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none disabled:opacity-50" type="number"/>
                 <ValidationMessage For="() => settings.WordSpeed" class="text-rose-300 text-xs text-center font-medium" />
             </div>
             <div class="flex flex-col items-center mb-2">
                 <p>Char Per Minute</p>
-                <input @bind-value=@settings.CharSpeed class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none disabled:opacity-50" type="number" />
+                <input @bind-value=@settings.CharSpeed @bind-value:after="RevalidateIfShowing" class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none disabled:opacity-50" type="number" />
                 <ValidationMessage For="@(() => settings.CharSpeed)" class="text-rose-300 text-xs text-center font-medium" />
             </div>
             <div class="flex flex-col items-center mb-2">
                 <p>Frequency</p>
-                <input @bind-value=@settings.Frequency class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none disabled:opacity-50" type="number"  />
+                <input @bind-value=@settings.Frequency @bind-value:after="RevalidateIfShowing" class="text-center font-black text-gray-500 w-1/2 mx-auto outline-none disabled:opacity-50" type="number"  />
                 <ValidationMessage For="@(() => settings.Frequency)" class="text-rose-300 text-xs text-center font-medium" />
             </div>
 
@@ -80,12 +78,13 @@
 
     #endregion
 
-    FluentValidationValidator? validator;
     #region Fields
 
     const string StorageKey = "araratmorse.customSound";
 
     Settings settings = new();
+    EditContext editContext = default!;
+    ValidationMessageStore validationMessages = default!;
     string selectedPreset = AraratMorse.State.SoundPreset.CustomName;
     string qualitySelection = "standard";
     bool fadeOn = true;
@@ -99,6 +98,32 @@
 
     #endregion
     #region Methods
+
+    // Synchronously, so the form has its context before the first render (which happens while
+    // OnInitializedAsync is still awaiting localStorage).
+    protected override void OnInitialized()
+    {
+        editContext = new EditContext(settings);
+        validationMessages = new ValidationMessageStore(editContext);
+        editContext.OnValidationRequested += (_, _) => RunValidation();
+    }
+
+    // Plain inputs don't raise EditContext field changes, so messages would otherwise stay stale
+    // until the next Save. Only once they're showing, though: no complaints before a first Save.
+    // Every field is re-checked, since the char/word speed rule spans two of them.
+    void RevalidateIfShowing()
+    {
+        if (editContext.GetValidationMessages().Any())
+            RunValidation();
+    }
+
+    void RunValidation()
+    {
+        validationMessages.Clear();
+        foreach (var (field, message) in settings.Validate())
+            validationMessages.Add(editContext.Field(field), message);
+        editContext.NotifyValidationStateChanged();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -138,6 +163,10 @@
         selectedPreset = MorseSettings.PresetName;
         qualitySelection = MorseSettings.Format.BitDepth == AudioBitDepth.Float32 ? "studio" : "standard";
         fadeOn = MorseSettings.Format.EdgeMilliseconds > 0;
+
+        // The fields now hold a known-good preset; drop messages about whatever was typed before.
+        validationMessages.Clear();
+        editContext.NotifyValidationStateChanged();
     }
 
     void HandleStateChanged() => StateHasChanged();
@@ -161,7 +190,7 @@
             return;
         }
 
-        if (!await ValidateAsync())
+        if (!editContext.Validate())
             return;
 
         var baseFormat = qualitySelection == "studio"
@@ -177,8 +206,6 @@
 
         State.ClosePanel();
     }
-
-    async ValueTask<bool> ValidateAsync() => (await validator!.ValidateAsync(option => option.IncludeAllRuleSets()));
 
     public void Dispose() => State.Changed -= HandleStateChanged;
 

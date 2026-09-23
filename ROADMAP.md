@@ -615,9 +615,15 @@ Smaller additions:
 
       Gone: Fluxor, Newtonsoft.Json, and what they pulled in, including all of `System.Private.Xml`
       and `Xml.Linq`, `System.Data.Common`, `System.Drawing`, `Reflection.Emit`, `Runtime.Numerics`
-      and the serialization formatters. Nothing was added. The largest non-framework assembly left
-      is FluentValidation, 469 KB, which validates three number fields in Settings; replacing it
-      with plain range checks is the next easy cut.)
+      and the serialization formatters. Nothing was added.
+
+      Follow-up: FluentValidation (and Blazored.FluentValidation) is gone too. It only checked
+      three number fields in Settings, which `Settings.Validate()` now does, feeding a
+      `ValidationMessageStore` on the form's own `EditContext`, so the `<ValidationMessage>`s are
+      unchanged. Its AOT-compiled code was in `dotnet.native.wasm` as well, so it cost far more
+      than its 469 KB assembly suggested: the gzip download went from 9.06 to 7.95 MB, now 35%
+      below `main`, the native wasm from 19.45 to 17.42 MB, and assemblies from 39 to 37. The
+      app now has three packages: MorseSharp, ClipLazor and WebAssembly.)
 - [x] Keep `RunAOTCompilation` but re-measure; Fluxor reflection scanning
       (`ScanAssemblies`) is gone, so startup should drop noticeably.
       (Kept. Both builds were served locally the way Pages serves them, and timed from navigation
@@ -664,7 +670,13 @@ Smaller additions:
       check that regenerating Tailwind leaves `app.css` unchanged. `app.css` is checked in and
       isn't built by dotnet, so a stale one has been the most common silent breakage. Regenerating
       is deterministic: Tailwind is pinned at 3.4.15 in the lock, and a local run produced no
-      diff. There's no test project yet, so the job only builds.)
+      diff. Then `dotnet test` runs `AraratMorse.Tests`: 48 xUnit tests over the pure logic, which
+      covers settings validation, friendly errors (against real MorseSharp exceptions), history
+      merging and persistence through a fake `localStorage`, copy grading, text direction,
+      waveform peaks and the sounding duration, and `AppState`. They caught one real bug on the
+      first run: the unknown-prosign message dropped the brackets, "ZZ isn't a prosign", because
+      the exception stores the bare name. Grading moved out of `CallsignDrills.razor` into
+      `State/CopyGrader.cs` so it could be tested.)
 - [x] Copy `index.html` to `404.html` in the publish output so deep links survive refresh on
       Pages.
       (Done after the base-href rewrite, so the 404 page boots the app under `/AraratMorse/`.
