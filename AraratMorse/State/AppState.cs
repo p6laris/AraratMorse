@@ -17,7 +17,8 @@ public class AppState(MorseService morse)
 {
     public string? Input { get; private set; }
     public string? Output { get; private set; }
-    public string? Error { get; private set; }
+    public string? Error => ErrorInfo?.Message;
+    public FriendlyError? ErrorInfo { get; private set; }
     public bool IsEncoding { get; private set; } = true;
     public Language Language { get; private set; } = Language.Kurdish;
     public Panel ActivePanel { get; private set; } = Panel.None;
@@ -44,7 +45,7 @@ public class AppState(MorseService morse)
         if (string.IsNullOrEmpty(input))
         {
             Output = null;
-            Error = null;
+            ErrorInfo = null;
             Changed?.Invoke();
             return;
         }
@@ -52,12 +53,12 @@ public class AppState(MorseService morse)
         try
         {
             Output = IsEncoding ? morse.Encode(input, Language) : morse.Decode(input, Language);
-            Error = null;
+            ErrorInfo = null;
         }
         catch (Exception ex)
         {
             Output = null;
-            Error = ex.Message;
+            ErrorInfo = FriendlyErrors.Describe(ex);
         }
 
         Changed?.Invoke();
@@ -69,7 +70,7 @@ public class AppState(MorseService morse)
     {
         Input = null;
         Output = text;
-        Error = null;
+        ErrorInfo = null;
         IsEncoding = false;
         Changed?.Invoke();
     }
@@ -90,7 +91,7 @@ public class AppState(MorseService morse)
     {
         Input = null;
         Output = null;
-        Error = null;
+        ErrorInfo = null;
         Changed?.Invoke();
     }
 }

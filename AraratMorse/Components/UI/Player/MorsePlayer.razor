@@ -19,7 +19,7 @@
             @if (Kind is PlayerKind.Light or PlayerKind.Both)
             {
                 <LampView IsOn="_isLightOn" Mode="LampMode" Color="LampColor" Brightness="LampBrightness"
-                          ReducedMotion="ReducedMotion"/>
+                          ReducedMotion="@(ReducedMotion ?? _systemReducedMotion)"/>
             }
         </div>
 
@@ -112,7 +112,9 @@
 
     [Parameter] public double LampBrightness { get; set; } = 1.0;
 
-    [Parameter] public bool ReducedMotion { get; set; }
+    /// <summary>Shows the light as an ON/OFF readout instead of flashing. Null follows the
+    /// device's reduce-motion setting.</summary>
+    [Parameter] public bool? ReducedMotion { get; set; }
 
     /// <summary>Drives the camera-flash torch (best effort) alongside the light loop. The host is
     /// responsible for feature-detecting support and only offering this when available.</summary>
@@ -162,6 +164,7 @@
     bool _isPlaying;
     bool _isPaused;
     bool _isLightOn;
+    bool _systemReducedMotion;
     bool _lightRunning;
     bool _needsAudioPush;
 
@@ -210,6 +213,13 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender && ReducedMotion is null)
+        {
+            _systemReducedMotion = await JS.InvokeAsync<bool>("araratMorseMotion.prefersReduced");
+            if (_systemReducedMotion)
+                StateHasChanged();
+        }
+
         if (_needsAudioPush && _wavBytes is not null)
         {
             _needsAudioPush = false;

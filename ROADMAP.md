@@ -528,12 +528,27 @@ Smaller additions:
       real Tab and Escape key presses on the Sound sheet and the Settings drawer. Follow-up: the
       off-canvas sidebar on phones has the same hidden-but-tabbable problem, but it's visible on
       `sm:` and wider, so it needs a viewport-aware fix rather than a plain `inert`.)
-- [ ] `prefers-reduced-motion`: skip the slide-up transitions and, for the light player, offer a
+- [x] `prefers-reduced-motion`: skip the slide-up transitions and, for the light player, offer a
       text ("ON/OFF") mode instead of full-screen flashing. Also worth a photosensitivity note.
-- [ ] Replace the raw error strings from exceptions with short human messages; keep the exception
+      (A global `prefers-reduced-motion` rule in `style.css` removes transitions and animations,
+      so sheets and drawers snap open instead of sliding. `MorsePlayer.ReducedMotion` is now
+      `bool?`, and null follows the device setting through `araratMorseMotion.prefersReduced`, so
+      the Koch and Callsign light modes respect it too. The Light sheet starts in Safe (ON/OFF)
+      mode when the device asks for reduced motion. Otherwise it shows a flashing-light warning
+      in place of the player, with "Use Safe mode" or "I understand, flash"; the acknowledgement
+      is stored under `araratmorse.flashWarningAcknowledged`.)
+- [x] Replace the raw error strings from exceptions with short human messages; keep the exception
       detail behind a "details" expander.
-- [ ] Empty states: the sound and light buttons should be disabled until there is output to play,
+      (`FriendlyErrors.Describe` maps MorseSharp's typed exceptions, which carry the offending
+      character, prosign or sequence, to a message plus a hint. For example: "Kurdish Morse has
+      no code for 'h'", with a pointer to other languages or the Custom Alphabet page. Morse input
+      containing letters gets "Morse can only contain dots, dashes, spaces and slashes". The raw
+      exception text is behind a "Details" disclosure. `AppState.ErrorInfo` carries all three
+      parts, and `Error` stays as the message for the existing null checks.)
+- [x] Empty states: the sound and light buttons should be disabled until there is output to play,
       instead of opening a panel that errors.
+      (They're `disabled` with a tooltip saying why: "Type something to convert first", or "Fix the
+      input first" when there's an error. The four tool buttons also gained `aria-label`s.)
 - [ ] A proper favicon/app icon set and a manifest so it installs nicely as a PWA; it's a
       converter people reach for on phones.
 - [ ] Shareable links: encode input, direction and language into the URL query so a conversion

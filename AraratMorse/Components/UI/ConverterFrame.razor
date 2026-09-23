@@ -11,10 +11,7 @@
     <Textarea Placeholder=" " Text="@State.Output" IsReadonly="true" Title="@sTitle()" />
 
     @* Error Section *@
-    @if (!string.IsNullOrEmpty(State.Error))
-    {
-        <TranslationError Message="@State.Error"/>
-    }
+    <TranslationError Error="State.ErrorInfo"/>
 </div>
 
 @code{

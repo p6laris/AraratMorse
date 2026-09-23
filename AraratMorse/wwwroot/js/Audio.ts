@@ -371,6 +371,9 @@ namespace AraratMorse {
         window['araratMorseTorch'] = new TorchManager();
         window['araratMorseMic'] = new MicCapture();
         window['araratMorseSidetone'] = new Sidetone();
+        window['araratMorseMotion'] = {
+            prefersReduced: (): boolean => window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        };
     }
 }
 
