@@ -453,10 +453,27 @@ Decoding received audio:
 
 Keyer:
 
-- [ ] A practice key page: spacebar (or touch) as a straight key first, then two keys / two touch
+- [x] A practice key page: spacebar (or touch) as a straight key first, then two keys / two touch
       zones as iambic paddles into `IambicKeyer`, with `KeyerDecoder` turning what the user keys
-      back into text on screen. Mode A/B toggle in settings.
-- [ ] Sidetone while keying, reusing the audio machinery from Phase 4.
+      back into text on screen. Mode A/B toggle in settings. (New `/keyer` page. A standalone
+      probe revealed `IambicKeyer` has no autonomous gap detection at all — "there is no clock
+      inside the keyer" turned out to mean it only ever emits `Dot`/`Dash`/`ElementGap` while a
+      paddle is actively held, never `CharGap`/`WordGap` from elapsed real time on its own. Both
+      input modes therefore share one mechanism: keyed elements go to `KeyerDecoder.Add`
+      (straight key: duration measured directly and classified against the WPM-derived unit
+      length; iambic: drained from `IambicKeyer.TryRead` with real-time `Task.Delay` pacing, per
+      the README's own loop shape), and a periodic idle timer independently calls
+      `KeyerDecoder.Quiet(elapsed-since-last-key)` to signal gaps — verified this exact
+      repeated-growing-duration polling pattern decodes correctly via a second probe before
+      writing any UI. Verified live in the browser: scripted mousedown/mouseup timing decoded a
+      full "SOS " through the straight key, and separate dot/dash taps decoded "S" and "O"
+      through the iambic paddles.)
+- [x] Sidetone while keying, reusing the audio machinery from Phase 4. (Not literally reused —
+      Phase 4's pipeline renders a fixed WAV ahead of time for known text, which doesn't fit a
+      live, unpredictable keying session. New `Sidetone` class in `Audio.ts`: a continuously
+      running `OscillatorNode` gated through a `GainNode` ramped on/off per key transition,
+      avoiding both the latency of starting a fresh tone per press and audible clicks at the
+      edges.)
 
 Smaller additions:
 

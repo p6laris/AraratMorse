@@ -1,0 +1,303 @@
+@page "/keyer"
+@using MorseSharp
+@implements IAsyncDisposable
+
+<main class="flex flex-col font-sans">
+    <h1 class="text-white text-2xl sm:text-3xl lg:text-4xl font-black text-center lg:mx-auto outline-none mb-6">
+        Keyer Practice
+    </h1>
+
+    <div class="flex flex-col gap-6 items-stretch bg-white rounded-2xl shadow-sm w-full lg:w-1/2 lg:mx-auto text-black p-6 sm:p-8">
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <label class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Input</span>
+                <select @bind=_mode @bind:after="ResetAsync" disabled="@_isPracticing"
+                        class="border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50">
+                    <option value="@InputMode.Straight">Straight key</option>
+                    <option value="@InputMode.Iambic">Iambic paddles</option>
+                </select>
+            </label>
+            <label class="flex flex-col gap-1.5 @(_mode == InputMode.Straight ? "opacity-40" : "")">
+                <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Keyer mode</span>
+                <select @bind=_keyerMode disabled="@(_isPracticing || _mode == InputMode.Straight)"
+                        class="border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50">
+                    <option value="@KeyerMode.A">Mode A</option>
+                    <option value="@KeyerMode.B">Mode B</option>
+                </select>
+            </label>
+            <label class="flex flex-col gap-1.5">
+                <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">WPM</span>
+                <input type="number" @bind=_wpm disabled="@_isPracticing"
+                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50"/>
+            </label>
+            <label class="flex items-center gap-2 text-sm text-gray-700 mt-auto mb-2">
+                <input type="checkbox" @bind=_sidetoneOn class="w-4 h-4 rounded border-gray-300 accent-black"/>
+                Sidetone
+            </label>
+        </div>
+
+        @if (!_isPracticing)
+        {
+            <button @onclick="StartAsync" class="bg-black hover:bg-gray-800 transition-colors text-white font-medium rounded-xl py-3">
+                Start practicing
+            </button>
+        }
+        else
+        {
+            <button @onclick="StopAsync" class="bg-rose-500 hover:bg-rose-600 transition-colors text-white font-medium rounded-xl py-3">
+                Stop
+            </button>
+        }
+
+        <div class="bg-gray-50 rounded-xl p-4 text-lg font-mono min-h-16 break-words">
+            @(string.IsNullOrEmpty(_outputText) ? "Key something..." : _outputText)
+        </div>
+
+        @if (_isPracticing)
+        {
+            @if (_mode == InputMode.Straight)
+            {
+                <div tabindex="0" @onkeydown="OnSpaceDown" @onkeydown:preventDefault="true"
+                     @onkeyup="OnSpaceUp" @onkeyup:preventDefault="true" class="focus:outline-none">
+                    <button @onmousedown="OnKeyDown" @onmouseup="OnKeyUp" @onmouseleave="OnKeyUp"
+                            @ontouchstart="OnKeyDown" @ontouchend="OnKeyUp"
+                            class="select-none w-full bg-black text-white font-medium rounded-2xl py-10 text-center text-lg
+                                   active:bg-gray-700 transition-colors">
+                        Key (press and hold)
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 text-center">Space bar also works — click the key once first so the page has focus.</p>
+            }
+            else
+            {
+                <div class="grid grid-cols-2 gap-4">
+                    <button @onmousedown="() => SetDot(true)" @onmouseup="() => SetDot(false)" @onmouseleave="() => SetDot(false)"
+                            @ontouchstart="() => SetDot(true)" @ontouchend="() => SetDot(false)"
+                            class="select-none bg-black text-white font-medium rounded-2xl py-10 text-center text-lg
+                                   active:bg-gray-700 transition-colors">
+                        Dot
+                    </button>
+                    <button @onmousedown="() => SetDash(true)" @onmouseup="() => SetDash(false)" @onmouseleave="() => SetDash(false)"
+                            @ontouchstart="() => SetDash(true)" @ontouchend="() => SetDash(false)"
+                            class="select-none bg-black text-white font-medium rounded-2xl py-10 text-center text-lg
+                                   active:bg-gray-700 transition-colors">
+                        Dash
+                    </button>
+                </div>
+            }
+        }
+
+        <button @onclick="ClearOutput" class="bg-gray-100 hover:bg-gray-200 transition-colors text-black font-medium rounded-xl py-2.5">
+            Clear
+        </button>
+
+    </div>
+</main>
+
+@code {
+
+    enum InputMode { Straight, Iambic }
+
+    InputMode _mode = InputMode.Straight;
+    KeyerMode _keyerMode = KeyerMode.B;
+    int _wpm = 20;
+    bool _sidetoneOn = true;
+    bool _isPracticing;
+    string _outputText = "";
+
+    KeyerDecoder? _decoder;
+    IambicKeyer? _keyer;
+    bool _dotDown, _dashDown;
+    bool _keyDown;
+    DateTime _keyDownAt;
+    DateTime _lastActivityAt = DateTime.UtcNow;
+
+    CancellationTokenSource? _loopCts;
+    Timer? _idleTimer;
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    async Task StartAsync()
+    {
+        _outputText = "";
+        _decoder = new KeyerDecoder(Language.English, _wpm);
+        _lastActivityAt = DateTime.UtcNow;
+
+        if (_sidetoneOn)
+            await JS.InvokeVoidAsync("araratMorseSidetone.ensureStarted", 700);
+
+        if (_mode == InputMode.Iambic)
+        {
+            _keyer = new IambicKeyer(_wpm, _keyerMode);
+            _loopCts = new CancellationTokenSource();
+            _ = IambicLoopAsync(_loopCts.Token);
+        }
+
+        _idleTimer = new Timer(_ => OnIdleTick(), null, 100, 100);
+        _isPracticing = true;
+    }
+
+    async Task StopAsync()
+    {
+        _loopCts?.Cancel();
+        _loopCts = null;
+        _keyer = null;
+
+        _idleTimer?.Dispose();
+        _idleTimer = null;
+
+        _dotDown = _dashDown = _keyDown = false;
+
+        if (_sidetoneOn)
+            await SetSidetoneAsync(false);
+
+        _isPracticing = false;
+    }
+
+    async Task ResetAsync()
+    {
+        if (_isPracticing)
+            await StopAsync();
+    }
+
+    async Task IambicLoopAsync(CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                if (_keyer is not null && _keyer.TryRead(out var element))
+                {
+                    if (element.KeyDown)
+                        _ = SetSidetoneAsync(true);
+
+                    await Task.Delay(element.Duration, token);
+
+                    if (element.KeyDown)
+                        _ = SetSidetoneAsync(false);
+
+                    _decoder?.Add(element);
+                    _lastActivityAt = DateTime.UtcNow;
+                    await InvokeAsync(DrainDecoder);
+                }
+                else
+                {
+                    await Task.Delay(15, token);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // expected on Stop
+        }
+    }
+
+    void SetDot(bool down)
+    {
+        _dotDown = down;
+        _keyer?.Paddles(_dotDown, _dashDown);
+    }
+
+    void SetDash(bool down)
+    {
+        _dashDown = down;
+        _keyer?.Paddles(_dotDown, _dashDown);
+    }
+
+    void OnKeyDown()
+    {
+        if (_keyDown)
+            return;
+
+        _keyDown = true;
+        _keyDownAt = DateTime.UtcNow;
+        _ = SetSidetoneAsync(true);
+    }
+
+    void OnSpaceDown(KeyboardEventArgs e)
+    {
+        if (e.Code == "Space")
+            OnKeyDown();
+    }
+
+    async Task OnSpaceUp(KeyboardEventArgs e)
+    {
+        if (e.Code == "Space")
+            await OnKeyUp();
+    }
+
+    async Task OnKeyUp()
+    {
+        if (!_keyDown)
+            return;
+
+        _keyDown = false;
+        var duration = DateTime.UtcNow - _keyDownAt;
+        await SetSidetoneAsync(false);
+
+        var unitMs = 1200.0 / Math.Max(1, _wpm);
+        var kind = duration.TotalMilliseconds < unitMs * 2 ? MorseElementKind.Dot : MorseElementKind.Dash;
+        _decoder?.Add(new MorseElement(kind, duration));
+        _lastActivityAt = DateTime.UtcNow;
+        DrainDecoder();
+    }
+
+    void OnIdleTick()
+    {
+        if (_decoder is null || _keyDown || _dotDown || _dashDown)
+            return;
+
+        var idle = DateTime.UtcNow - _lastActivityAt;
+        _decoder.Quiet(idle);
+        _ = InvokeAsync(() =>
+        {
+            DrainDecoder();
+            StateHasChanged();
+        });
+    }
+
+    void DrainDecoder()
+    {
+        if (_decoder is null)
+            return;
+
+        while (_decoder.TryRead(out var ch, out var prosign))
+            _outputText += prosign is not null ? $"<{prosign}>" : ch.ToString();
+
+        StateHasChanged();
+    }
+
+    async Task SetSidetoneAsync(bool on)
+    {
+        if (!_sidetoneOn)
+            return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("araratMorseSidetone.set", on);
+        }
+        catch
+        {
+            // best effort
+        }
+    }
+
+    void ClearOutput() => _outputText = "";
+
+    public async ValueTask DisposeAsync()
+    {
+        _loopCts?.Cancel();
+        _idleTimer?.Dispose();
+
+        try
+        {
+            await JS.InvokeVoidAsync("araratMorseSidetone.stop");
+        }
+        catch
+        {
+            // best effort
+        }
+    }
+
+}

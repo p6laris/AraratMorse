@@ -238,10 +238,64 @@ namespace AraratMorse {
         }
     }
 
+    // A continuously-running oscillator gated by gain, so key-down/key-up just ramps the gain
+    // instead of starting/stopping a new tone each time — avoids audible clicks and lets Set()
+    // be called as often as real key transitions demand.
+    class Sidetone {
+        audioContext: AudioContext | null = null;
+        oscillator: OscillatorNode | null = null;
+        gainNode: GainNode | null = null;
+
+        ensureStarted(frequency: number): void {
+            if (this.audioContext) {
+                this.setFrequency(frequency);
+                return;
+            }
+
+            this.audioContext = new AudioContext();
+            this.oscillator = this.audioContext.createOscillator();
+            this.oscillator.type = "sine";
+            this.oscillator.frequency.value = frequency;
+
+            this.gainNode = this.audioContext.createGain();
+            this.gainNode.gain.value = 0;
+
+            this.oscillator.connect(this.gainNode);
+            this.gainNode.connect(this.audioContext.destination);
+            this.oscillator.start();
+        }
+
+        setFrequency(frequency: number): void {
+            if (this.oscillator) this.oscillator.frequency.value = frequency;
+        }
+
+        set(on: boolean): void {
+            if (!this.gainNode || !this.audioContext) return;
+
+            const now = this.audioContext.currentTime;
+            this.gainNode.gain.cancelScheduledValues(now);
+            this.gainNode.gain.setTargetAtTime(on ? 0.2 : 0, now, 0.002);
+        }
+
+        stop(): void {
+            try {
+                this.oscillator?.stop();
+            } catch {
+                // already stopped
+            }
+            void this.audioContext?.close();
+
+            this.oscillator = null;
+            this.gainNode = null;
+            this.audioContext = null;
+        }
+    }
+
     export function Load(): void {
         window['araratMorse'] = new AudioManager();
         window['araratMorseTorch'] = new TorchManager();
         window['araratMorseMic'] = new MicCapture();
+        window['araratMorseSidetone'] = new Sidetone();
     }
 }
 

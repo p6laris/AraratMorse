@@ -226,10 +226,60 @@ var AraratMorse;
             this.audioContext = null;
         }
     }
+    // A continuously-running oscillator gated by gain, so key-down/key-up just ramps the gain
+    // instead of starting/stopping a new tone each time — avoids audible clicks and lets Set()
+    // be called as often as real key transitions demand.
+    class Sidetone {
+        constructor() {
+            this.audioContext = null;
+            this.oscillator = null;
+            this.gainNode = null;
+        }
+        ensureStarted(frequency) {
+            if (this.audioContext) {
+                this.setFrequency(frequency);
+                return;
+            }
+            this.audioContext = new AudioContext();
+            this.oscillator = this.audioContext.createOscillator();
+            this.oscillator.type = "sine";
+            this.oscillator.frequency.value = frequency;
+            this.gainNode = this.audioContext.createGain();
+            this.gainNode.gain.value = 0;
+            this.oscillator.connect(this.gainNode);
+            this.gainNode.connect(this.audioContext.destination);
+            this.oscillator.start();
+        }
+        setFrequency(frequency) {
+            if (this.oscillator)
+                this.oscillator.frequency.value = frequency;
+        }
+        set(on) {
+            if (!this.gainNode || !this.audioContext)
+                return;
+            const now = this.audioContext.currentTime;
+            this.gainNode.gain.cancelScheduledValues(now);
+            this.gainNode.gain.setTargetAtTime(on ? 0.2 : 0, now, 0.002);
+        }
+        stop() {
+            var _a, _b;
+            try {
+                (_a = this.oscillator) === null || _a === void 0 ? void 0 : _a.stop();
+            }
+            catch (_c) {
+                // already stopped
+            }
+            void ((_b = this.audioContext) === null || _b === void 0 ? void 0 : _b.close());
+            this.oscillator = null;
+            this.gainNode = null;
+            this.audioContext = null;
+        }
+    }
     function Load() {
         window['araratMorse'] = new AudioManager();
         window['araratMorseTorch'] = new TorchManager();
         window['araratMorseMic'] = new MicCapture();
+        window['araratMorseSidetone'] = new Sidetone();
     }
     AraratMorse.Load = Load;
 })(AraratMorse || (AraratMorse = {}));
