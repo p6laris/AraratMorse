@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <!-- Dark Charcoal Squircle Background -->
+  <rect width="100" height="100" rx="22" fill="#0D1117"/>
+  
+  <!-- Mount Ararat Twin Peaks + Signal Waves -->
+  <g fill="none" stroke="#F0F6FC" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Greater Ararat Peak (Left) -->
+    <path d="M 16 74 L 38 34 L 56 62" stroke-width="6"/>
+    <!-- Greater Peak Snowcap -->
+    <path d="M 32 46 L 38 50 L 44 44" stroke-width="4.5"/>
+    
+    <!-- Lesser Ararat Peak (Right) -->
+    <path d="M 52 56 L 68 42 L 84 74" stroke-width="6"/>
+    <!-- Lesser Peak Snowcap -->
+    <path d="M 63 52 L 68 56 L 73 50" stroke-width="4.5"/>
+    
+    <!-- Base Bar -->
+    <line x1="16" y1="74" x2="84" y2="74" stroke-width="6"/>
+    
+    <!-- Morse Signal Radiating from Greater Ararat Summit -->
+    <circle cx="38" cy="34" r="3.5" fill="#38BDF8" stroke="none"/>
+    <path d="M 46 28 C 50 31 50 37 46 40" stroke="#38BDF8" stroke-width="3.5"/>
+    <path d="M 53 22 C 60 27 60 41 53 46" stroke="#38BDF8" stroke-width="3.5"/>
+    <path d="M 60 16 C 70 23 70 45 60 52" stroke="#38BDF8" stroke-width="3.5"/>
+  </g>
+</svg>

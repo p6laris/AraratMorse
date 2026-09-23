@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <!-- Dark Charcoal Squircle -->
+  <rect width="100" height="100" rx="22" fill="#0D1117"/>
+  
+  <g fill="#F0F6FC">
+    <!-- Greater Ararat (Left Peak) -->
+    <polygon points="36,28 14,68 54,68"/>
+    <!-- Lesser Ararat (Right Peak) -->
+    <polygon points="68,38 48,68 84,68"/>
+    
+    <!-- Cutout Snowcaps with Dark Fill -->
+    <polygon points="36,28 29,42 34,39 37,43 43,42" fill="#0D1117"/>
+    <polygon points="68,38 62,50 67,47 70,51 74,49" fill="#0D1117"/>
+  </g>
+  
+  <!-- Morse Code Baseline in Cyan -->
+  <g fill="#38BDF8">
+    <rect x="16" y="76" width="16" height="7" rx="3.5"/>
+    <circle cx="40" cy="79.5" r="3.5"/>
+    <rect x="52" y="76" width="16" height="7" rx="3.5"/>
+    <circle cx="76" cy="79.5" r="3.5"/>
+  </g>
+</svg>

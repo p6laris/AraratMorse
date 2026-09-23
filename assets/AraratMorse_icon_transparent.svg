@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" fill="currentColor">
+  <!-- Pure Monochrome Vector - Adapts to currentColor -->
+  <polygon points="36,26 14,64 56,64"/>
+  <polygon points="68,36 48,64 84,64"/>
+  <!-- Morse - . - . -->
+  <rect x="14" y="72" width="18" height="8" rx="4"/>
+  <circle cx="41" cy="76" r="4"/>
+  <rect x="53" y="72" width="18" height="8" rx="4"/>
+  <circle cx="80" cy="76" r="4"/>
+</svg>
