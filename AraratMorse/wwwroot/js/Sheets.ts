@@ -31,13 +31,45 @@ namespace AraratMorse {
             const sheet = record.target as HTMLElement;
             if (!sheet.hasAttribute('inert')) {
                 trigger = document.activeElement as HTMLElement | null;
-                (focusables(sheet)[0] ?? sheet).focus();
+                // Start on the player's play button when there is one, so Space plays straight away.
+                const play = sheet.querySelector<HTMLElement>('button[aria-label="Play"]');
+                (play ?? focusables(sheet)[0] ?? sheet).focus();
             } else if (trigger && lostFocus(sheet)) {
                 trigger.focus();
                 trigger = null;
             }
         }
     }).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['inert']});
+
+    // Space and "/" only act when the key isn't already meaningful where focus is: typing into a
+    // field, pressing a focused button, or the keyer's own key pad.
+    function focusOwnsKey(target: EventTarget | null): boolean {
+        const el = target as HTMLElement | null;
+        if (!el || el === document.body)
+            return false;
+        return el.isContentEditable || !!el.closest('input, textarea, select, button, a[href], [tabindex]:not([data-sheet])');
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || focusOwnsKey(e.target))
+            return;
+
+        if (e.key === ' ') {
+            // The open sheet's player, or the page's only player; nothing if it's ambiguous.
+            const scope = openSheet() ?? document.querySelector('main');
+            const toggles = scope?.querySelectorAll<HTMLElement>('button[aria-label="Play"], button[aria-label="Pause"]') ?? [];
+            if (toggles.length === 1) {
+                e.preventDefault();
+                toggles[0].click();
+            }
+        } else if (e.key === '/' && !openSheet()) {
+            const input = document.querySelector<HTMLElement>('main textarea:not([readonly])');
+            if (input) {
+                e.preventDefault();
+                input.focus();
+            }
+        }
+    });
 
     document.addEventListener('keydown', e => {
         const sheet = openSheet();

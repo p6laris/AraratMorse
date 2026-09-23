@@ -51,7 +51,7 @@
                     </svg>
                 </button>
 
-                <button type="button" @onclick="TogglePlayAsync" aria-label="@(_isPlaying ? "Pause" : "Play")" title="@(_isPlaying ? "Pause" : "Play")"
+                <button type="button" @onclick="TogglePlayAsync" aria-label="@(_isPlaying ? "Pause" : "Play")" title="@(_isPlaying ? "Pause (Space)" : "Play (Space)")"
                         class="w-11 h-11 rounded-full flex items-center justify-center transition-transform active:scale-95 shadow-sm
                                @(OnDark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800")">
                     @if (_isPlaying)

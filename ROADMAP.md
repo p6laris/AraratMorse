@@ -554,10 +554,25 @@ Smaller additions:
 - [ ] Shareable links: encode input, direction and language into the URL query so a conversion
       can be sent to someone as a link and the app restores it on load.
 - [ ] Conversion history: the last N conversions in localStorage, one tap to bring one back.
-- [ ] Keyboard shortcuts: Ctrl+Enter converts, Ctrl+C on the output area copies (ClipLazor is
+- [x] Keyboard shortcuts: Ctrl+Enter converts, Ctrl+C on the output area copies (ClipLazor is
       already there), Space plays/pauses whichever player is open.
-- [ ] Live convert-as-you-type behind a toggle, debounced; encoding is allocation-free in
+      (In `Sheets.ts`. Space toggles the open sheet's player, or the page's only player, and "/"
+      jumps to the converter input. Neither fires while typing in a field or with a button or the
+      keyer pad focused, so they never steal a real keystroke. Sheets now open with focus on their
+      Play button, so Space plays straight away, and the button's tooltip says "Play (Space)".
+      Ctrl+Enter was dropped because there's nothing to trigger: conversion already runs on every
+      input, see below. Ctrl+C already works on the output textarea, with the copy button beside it.)
+- [x] Live convert-as-you-type behind a toggle, debounced; encoding is allocation-free in
       MorseSharp 6 so the cost is one string per keystroke.
+      (Already the behaviour: `Textarea` raises `TextChanged` on every `oninput` and `AppState`
+      translates straight away. Encoding is cheap enough that a debounce or a toggle would only
+      add a delay, so neither was added.)
+- [x] Sidebar keyboard access (follow-up from the sheets work). The nav items were `<a>` tags with
+      no `href`, so Tab skipped them on every screen size, while the hidden GitHub link on phones
+      was still tabbable. They're `NavLink`s now, with real `href`s, a highlight on the current
+      page, and support for opening in a new tab. On phones the closed drawer is `invisible`,
+      transitioned together with its transform so it still slides out. The menu button has
+      `aria-expanded` and `aria-controls`.
 
 ## Phase 8: Performance
 
