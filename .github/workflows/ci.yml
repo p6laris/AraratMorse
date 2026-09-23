@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ "dev" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: AraratMorse/package-lock.json
+
+      # app.css is checked in rather than built by dotnet, so markup that uses a new utility class
+      # needs the stylesheet regenerated alongside it. Runs before the build so bin/ and obj/ don't
+      # add anything to what Tailwind scans.
+      - name: Check wwwroot/css/app.css is up to date
+        working-directory: AraratMorse
+        run: |
+          npm ci
+          npx tailwindcss -i Style/style.css -o wwwroot/css/app.css --minify
+          if ! git diff --quiet -- wwwroot/css/app.css; then
+            echo "::error file=AraratMorse/wwwroot/css/app.css::Stale stylesheet. In AraratMorse/, run: npx tailwindcss -i Style/style.css -o wwwroot/css/app.css --minify"
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.x
+
+      - name: Install the wasm-tools workload
+        run: dotnet workload install wasm-tools
+
+      # Release without publishing: catches compile errors and warnings quickly, without the
+      # several-minute AOT compile that only the deploy needs.
+      - name: Build
+        run: dotnet build AraratMorse.sln -c Release -warnaserror --nologo

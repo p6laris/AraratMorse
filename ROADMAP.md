@@ -613,15 +613,35 @@ Smaller additions:
 
 ## Phase 9: CI and release
 
-- [ ] Update `dotnet.yml`: SDK 10.x, keep the wasm-tools workload, fix the base-href step (the
+- [x] Update `dotnet.yml`: SDK 10.x, keep the wasm-tools workload, fix the base-href step (the
       comment says "ArartMorse", verify the actual path GitHub Pages serves from).
-- [ ] Add a build-and-test job on pull requests, not just deploy-on-main.
-- [ ] Copy `index.html` to `404.html` in the publish output so deep links survive refresh on
+      (The path is `/AraratMorse/`, matching the repository `p6laris/AraratMorse`. The step now
+      takes it from `github.event.repository.name` and greps for the result, so a reformatted
+      `<base>` tag fails the deploy instead of shipping a broken site. The redundant Debug build
+      is dropped, there's `workflow_dispatch` and a concurrency group, and the deploy action is on
+      its `v4` tag.)
+- [x] Add a build-and-test job on pull requests, not just deploy-on-main.
+      (`ci.yml`, on pull requests and pushes to `dev`: a Release build with `-warnaserror`, plus a
+      check that regenerating Tailwind leaves `app.css` unchanged. `app.css` is checked in and
+      isn't built by dotnet, so a stale one has been the most common silent breakage. Regenerating
+      is deterministic: Tailwind is pinned at 3.4.15 in the lock, and a local run produced no
+      diff. There's no test project yet, so the job only builds.)
+- [x] Copy `index.html` to `404.html` in the publish output so deep links survive refresh on
       Pages.
-- [ ] Update README: drop Fluxor from "Built with", add the new features as they land, replace the
+      (Done after the base-href rewrite, so the 404 page boots the app under `/AraratMorse/`.
+      The placeholder `wwwroot/404.html` is gone, and so are the stale precompressed copies of
+      the old `index.html`. Verified by serving a publish the way Pages does, with files under
+      `/AraratMorse/` and `404.html`, with a 404 status, for anything missing: a fresh load of
+      `/AraratMorse/koch` rendered the Koch page with it selected in the sidebar.)
+- [x] Update README: drop Fluxor from "Built with", add the new features as they land, replace the
       broken logo link with the raw content URL (same fix as MorseSharp's README needed).
-- [ ] Tag releases and keep a small CHANGELOG once Phase 1 ships, so the MorseSharp version bump
+      (Rewritten, with the live link, the current features, setup including the wasm-tools
+      workload, how to regenerate the stylesheet, and what CI does. The banner uses a relative
+      path, which renders on GitHub and in forks.)
+- [x] Tag releases and keep a small CHANGELOG once Phase 1 ships, so the MorseSharp version bump
       is traceable.
+      (`CHANGELOG.md` with 2.0.0 for this rebuild and 1.0.0 for the MorseSharp 4.1.4 original.
+      Tagging `v2.0.0` belongs to the merge to `main`, since that's what deploys.)
 
 ---
 
