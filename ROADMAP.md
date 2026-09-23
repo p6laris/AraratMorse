@@ -430,10 +430,26 @@ Decoding received audio:
       (the sandboxed test browser can't drive a real OS file picker) — decoded a real generated
       WAV back to its original text and pushed it into the converter's output via a new
       `AppState.SetDecodedText`.)
-- [ ] "Decode from microphone": Web Audio capture over interop feeding
+- [x] "Decode from microphone": Web Audio capture over interop feeding
       `CreateAudioDecoder().Write(...)` chunk by chunk, characters appearing as `TryRead` yields
       them. This is the flagship demo of the streaming decoder; treat chunk size as arbitrary
-      because the decoder does.
+      because the decoder does. (New `DecodeFromMicSection`, a fourth `ToolsFrame` button.
+      `Audio.ts`'s new `MicCapture` uses a `ScriptProcessorNode` at a fixed 4096-sample chunk
+      size — arbitrary, per the roadmap's own note, since the decoder doesn't care — routed
+      through a zero-gain node before `destination`, since a `ScriptProcessorNode` only fires
+      `onaudioprocess` once it's in a graph reaching the destination, but actually letting the
+      mic input reach the speakers would risk audible feedback. Each chunk is converted to
+      16-bit PCM bytes and delivered to a `[JSInvokable] OnAudioChunk` via
+      `DotNetObjectReference`, which calls `StreamingMorseDecoder.Write`/`TryRead` and appends
+      any yielded characters live. Mic access is requested only from the "Start listening"
+      click, never proactively — same pattern as Phase 5's torch feature, for the same reason:
+      no unsolicited permission prompt on page load. Verified two ways: a standalone probe fed
+      a generated WAV through `CreateAudioDecoder`/`Write`/`TryRead`/`Flush` in 4096-sample
+      chunks (simulating live delivery) and recovered the original text exactly across the
+      chunk boundaries; in the browser, "Start listening" correctly triggers a real
+      microphone-permission request (denied in the sandboxed test browser, as expected) and
+      the app handles the denial gracefully with no crash — genuine mic capture end-to-end
+      isn't verifiable in this environment.)
 
 Keyer:
 

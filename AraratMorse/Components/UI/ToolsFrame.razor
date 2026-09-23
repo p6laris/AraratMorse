@@ -17,6 +17,11 @@
             <path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L11 13.586V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/>
         </svg>
     </button>
+    <button @onclick="ToggleDecodeMicBar" title="Decode audio from the microphone" class="p-2 rounded-full border border-white">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/>
+        </svg>
+    </button>
 </div>
 
 @* Light and Sound Components *@
@@ -25,6 +30,8 @@
 <SoundSection IsOpened="State.ActivePanel == Panel.Sound"/>
 
 <DecodeFromFileSection IsOpened="State.ActivePanel == Panel.DecodeFile"/>
+
+<DecodeFromMicSection IsOpened="State.ActivePanel == Panel.DecodeMic"/>
 
 
 @code {
@@ -71,6 +78,14 @@
             State.ClosePanel();
         else
             State.ShowPanel(Panel.DecodeFile);
+    }
+
+    void ToggleDecodeMicBar()
+    {
+        if (State.ActivePanel == Panel.DecodeMic)
+            State.ClosePanel();
+        else
+            State.ShowPanel(Panel.DecodeMic);
     }
 
     bool ShouldSectionOpen()

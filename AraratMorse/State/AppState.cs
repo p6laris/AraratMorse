@@ -9,7 +9,8 @@ public enum Panel
     Light,
     Settings,
     LanguageDropdown,
-    DecodeFile
+    DecodeFile,
+    DecodeMic
 }
 
 public class AppState(MorseService morse)

@@ -167,9 +167,81 @@ namespace AraratMorse {
         }
     }
 
+    // Streams microphone audio to the .NET streaming decoder in fixed-size chunks. Chunk size is
+    // arbitrary as far as MorseSharp's decoder is concerned; 4096 samples is just a reasonable
+    // balance between interop call frequency and latency for a live demo.
+    class MicCapture {
+        stream: MediaStream | null = null;
+        audioContext: AudioContext | null = null;
+        source: MediaStreamAudioSourceNode | null = null;
+        processor: ScriptProcessorNode | null = null;
+        silencer: GainNode | null = null;
+
+        hasMicApi(): boolean {
+            return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        }
+
+        // Returns the actual sample rate the capture is running at (the device/browser decides
+        // this, not us), or -1 if the user declined/it's unsupported.
+        async start(dotNetRef: any): Promise<number> {
+            this.stop();
+
+            try {
+                this.stream = await navigator.mediaDevices.getUserMedia({audio: true});
+            } catch {
+                return -1;
+            }
+
+            this.audioContext = new AudioContext();
+            this.source = this.audioContext.createMediaStreamSource(this.stream);
+            this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+
+            this.processor.onaudioprocess = (e: AudioProcessingEvent) => {
+                const input = e.inputBuffer.getChannelData(0);
+                const bytes = new Uint8Array(input.length * 2);
+                const view = new DataView(bytes.buffer);
+
+                for (let i = 0; i < input.length; i++) {
+                    const clamped = Math.max(-1, Math.min(1, input[i]));
+                    const sample = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+                    view.setInt16(i * 2, sample, true);
+                }
+
+                dotNetRef.invokeMethodAsync("OnAudioChunk", bytes);
+            };
+
+            // ScriptProcessorNode only fires onaudioprocess once it's in a graph that reaches
+            // the destination. Route it through a zero-gain node so the mic is never actually
+            // played back out loud (which would risk audible feedback/echo).
+            this.silencer = this.audioContext.createGain();
+            this.silencer.gain.value = 0;
+
+            this.source.connect(this.processor);
+            this.processor.connect(this.silencer);
+            this.silencer.connect(this.audioContext.destination);
+
+            return this.audioContext.sampleRate;
+        }
+
+        stop(): void {
+            this.processor?.disconnect();
+            this.silencer?.disconnect();
+            this.source?.disconnect();
+            this.stream?.getTracks().forEach(track => track.stop());
+            void this.audioContext?.close();
+
+            this.processor = null;
+            this.silencer = null;
+            this.source = null;
+            this.stream = null;
+            this.audioContext = null;
+        }
+    }
+
     export function Load(): void {
         window['araratMorse'] = new AudioManager();
         window['araratMorseTorch'] = new TorchManager();
+        window['araratMorseMic'] = new MicCapture();
     }
 }
 

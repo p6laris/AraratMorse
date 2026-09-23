@@ -28,4 +28,8 @@ public class MorseService
     public string FromAudio(ReadOnlySpan<short> samples, Language language, int sampleRate, double frequency,
         int wordsPerMinute) =>
         Morse.GetConverter().ForLanguage(language).FromAudio(samples, sampleRate, frequency, wordsPerMinute);
+
+    public StreamingMorseDecoder CreateAudioDecoder(Language language, int sampleRate, double frequency,
+        int wordsPerMinute) =>
+        Morse.GetConverter().ForLanguage(language).CreateAudioDecoder(sampleRate, frequency, wordsPerMinute);
 }
