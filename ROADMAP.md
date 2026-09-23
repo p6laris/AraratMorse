@@ -417,8 +417,19 @@ in the compiled CSS yet.
 
 Decoding received audio:
 
-- [ ] "Decode from file": accept a WAV upload, hand the PCM to `FromAudio`, put the text in the
-      converter output. Runs entirely client side.
+- [x] "Decode from file": accept a WAV upload, hand the PCM to `FromAudio`, put the text in the
+      converter output. Runs entirely client side. (New `DecodeFromFileSection` bottom sheet, a
+      third `ToolsFrame` button alongside Sound/Light. `WavSamples` gained `ReadPcm16` — a
+      16-bit-PCM-plus-sample-rate sibling to the Phase 4 `Read` used for waveform visualization,
+      since `FromAudio` needs actual `short` samples, not normalized floats. Tone (Hz) and
+      approximate WPM are user-adjustable since `FromAudio` needs a starting guess for both; an
+      empty decode result — the library's own signal for "no tone found at that frequency" —
+      shows a message instead of a blank/misleading success state. Verified two ways: a
+      standalone round-trip probe (`GetWav` → `ReadPcm16` → `FromAudio` recovered the original
+      text exactly), and end-to-end in the browser using a `DataTransfer`-simulated file upload
+      (the sandboxed test browser can't drive a real OS file picker) — decoded a real generated
+      WAV back to its original text and pushed it into the converter's output via a new
+      `AppState.SetDecodedText`.)
 - [ ] "Decode from microphone": Web Audio capture over interop feeding
       `CreateAudioDecoder().Write(...)` chunk by chunk, characters appearing as `TryRead` yields
       them. This is the flagship demo of the streaming decoder; treat chunk size as arbitrary

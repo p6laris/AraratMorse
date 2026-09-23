@@ -1,0 +1,155 @@
+@using AraratMorse.State
+
+@* Overlay *@
+<div @onclick="Close" class="@(IsOpened ? "fixed" : "hidden") inset-0 bg-black z-20 opacity-10"></div>
+
+<div class="fixed bottom-0 left-0 flex flex-col bg-black text-white items-center w-full h-full rounded-t-lg p-5 mt-10 z-50 transition-transform shadow-top @(!IsOpened ? "translate-y-full" : "translate-y-0")">
+
+    <div class="flex items-center justify-between w-full mb-6">
+        <button @onclick="Close" class="text-white rounded-full p-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10s10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17L12 13.41L8.41 17L7 15.59L10.59 12L7 8.41L8.41 7L12 10.59L15.59 7L17 8.41L13.41 12L17 15.59z"/>
+            </svg>
+        </button>
+        <h3 class="text-lg font-medium">Decode from file</h3>
+        <span class="w-[14px]"></span>
+    </div>
+
+    <div class="flex flex-col gap-4 w-full max-w-sm mx-auto">
+
+        <InputFile OnChange="OnFileSelectedAsync" accept=".wav" class="text-sm file:mr-3 file:py-2 file:px-3
+                    file:rounded-lg file:border-0 file:bg-white file:text-black file:font-medium"/>
+
+        <div class="grid grid-cols-2 gap-4">
+            <label class="flex flex-col gap-1.5 text-sm">
+                <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Tone (Hz)</span>
+                <input type="number" @bind=_frequency
+                       class="border border-gray-600 bg-transparent rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white/20"/>
+            </label>
+            <label class="flex flex-col gap-1.5 text-sm">
+                <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Approx. WPM</span>
+                <input type="number" @bind=_wordsPerMinute
+                       class="border border-gray-600 bg-transparent rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-white/20"/>
+            </label>
+        </div>
+
+        @if (_errorMessage is not null)
+        {
+            <p class="text-rose-400 text-sm">@_errorMessage</p>
+        }
+
+        @if (_decodeAttempted && string.IsNullOrEmpty(_decodedText))
+        {
+            <p class="text-amber-400 text-sm">No signal found at that tone — try a different frequency.</p>
+        }
+        else if (_decodedText is not null)
+        {
+            <div class="bg-white text-black rounded-xl p-4 text-sm break-words max-h-40 overflow-y-auto">
+                @_decodedText
+            </div>
+        }
+
+        <button @onclick="DecodeAsync" disabled="@(_fileBytes is null || _isBusy)"
+                class="bg-white text-black font-medium rounded-xl py-3 disabled:opacity-40 transition-opacity">
+            @(_isBusy ? "Decoding..." : "Decode")
+        </button>
+
+        @if (!string.IsNullOrEmpty(_decodedText))
+        {
+            <button @onclick="UseResult" class="bg-white/10 hover:bg-white/20 transition-colors text-white font-medium rounded-xl py-3">
+                Use in converter
+            </button>
+        }
+
+        <p class="text-xs text-gray-500">
+            16-bit PCM WAV. If nothing shows up, the tone or speed guess is probably off —
+            the decoder measures the real speed as it goes, so the WPM only has to be roughly right.
+        </p>
+    </div>
+
+</div>
+
+@code {
+
+    [Parameter] public bool IsOpened { get; set; }
+
+    [Inject] private AppState State { get; set; } = default!;
+
+    [Inject] private MorseService MorseService { get; set; } = default!;
+
+    byte[]? _fileBytes;
+    int _frequency = 700;
+    int _wordsPerMinute = 20;
+    bool _isBusy;
+    bool _decodeAttempted;
+    string? _errorMessage;
+    string? _decodedText;
+
+    async Task OnFileSelectedAsync(InputFileChangeEventArgs e)
+    {
+        _errorMessage = null;
+        _decodedText = null;
+        _decodeAttempted = false;
+        _fileBytes = null;
+
+        try
+        {
+            const long maxSize = 20 * 1024 * 1024; // 20 MB is generous for a short WAV clip
+            await using var stream = e.File.OpenReadStream(maxSize);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            _fileBytes = buffer.ToArray();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    async Task DecodeAsync()
+    {
+        if (_fileBytes is null)
+            return;
+
+        _isBusy = true;
+        _errorMessage = null;
+        _decodedText = null;
+        _decodeAttempted = false;
+
+        try
+        {
+            var samples = WavSamples.ReadPcm16(_fileBytes, out var sampleRate);
+            if (samples.Length == 0 || sampleRate <= 0)
+            {
+                _errorMessage = "Could not read PCM audio from that file.";
+            }
+            else
+            {
+                _decodedText = MorseService.FromAudio(samples, State.Language, sampleRate, _frequency, _wordsPerMinute);
+                _decodeAttempted = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    void UseResult()
+    {
+        if (_decodedText is null)
+            return;
+
+        State.SetDecodedText(_decodedText);
+        Close();
+    }
+
+    void Close() => State.ClosePanel();
+
+}

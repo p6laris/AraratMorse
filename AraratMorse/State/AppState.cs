@@ -8,7 +8,8 @@ public enum Panel
     Sound,
     Light,
     Settings,
-    LanguageDropdown
+    LanguageDropdown,
+    DecodeFile
 }
 
 public class AppState(MorseService morse)
@@ -58,6 +59,17 @@ public class AppState(MorseService morse)
             Error = ex.Message;
         }
 
+        Changed?.Invoke();
+    }
+
+    /// <summary>Used by "decode from file"/microphone, which produce text directly rather than
+    /// going through the usual Input-morse-string -> Output-text translate path.</summary>
+    public void SetDecodedText(string text)
+    {
+        Input = null;
+        Output = text;
+        Error = null;
+        IsEncoding = false;
         Changed?.Invoke();
     }
 
