@@ -8,19 +8,21 @@
 }
 else if (Mode == LampMode.SignalLamp)
 {
-    <div class="w-full h-full bg-black rounded-lg flex items-center justify-center">
-        <div class="rounded-full w-2/5 aspect-square" style="@LampStyle(glow: true)"></div>
+    @* Sized against its box in both directions (container units), so it stays a circle on a wide,
+       short screen as well as a tall one. *@
+    <div class="w-full h-full bg-black rounded-lg flex items-center justify-center" style="container-type:size">
+        <div class="rounded-full aspect-square" style="width:min(60cqh,45cqw);@LampFill(glow: true)"></div>
     </div>
 }
 else if (Mode == LampMode.TopBar)
 {
     <div class="w-full h-full bg-black rounded-lg relative overflow-hidden">
-        <div class="absolute top-0 left-0 right-0 h-4" style="@LampStyle(glow: false)"></div>
+        <div class="absolute top-0 left-0 right-0 h-4" style="@LampFill(glow: false)"></div>
     </div>
 }
 else
 {
-    <div class="w-full h-full rounded-lg relative z-0" style="@LampStyle(glow: false, fullBleed: true)"></div>
+    <div class="w-full h-full rounded-lg relative z-0" style="@LampFill(glow: false, fullBleed: true)"></div>
 }
 
 @code {
@@ -45,15 +47,17 @@ else
         _ => "#ffffff"
     };
 
-    string LampStyle(bool glow, bool fullBleed = false)
+    // Colour only: each mode sizes its own element. (This used to set width/height to 100%, which
+    // stretched the signal lamp into a pill and the top bar over the whole box.)
+    string LampFill(bool glow, bool fullBleed = false)
     {
         var opacity = Math.Clamp(Brightness, 0, 1).ToString(CultureInfo.InvariantCulture);
         var color = Hex(Color);
 
         if (!IsOn)
-            return $"width:100%;height:100%;background-color:{(fullBleed ? "#000" : "#222")}";
+            return $"background-color:{(fullBleed ? "#000" : "#222")}";
 
-        var background = $"width:100%;height:100%;background-color:{color};opacity:{opacity}";
+        var background = $"background-color:{color};opacity:{opacity}";
         return glow ? $"{background};box-shadow:0 0 40px {color}" : background;
     }
 

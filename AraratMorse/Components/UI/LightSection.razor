@@ -37,8 +37,13 @@
         </div>
     </div>
 
-    <input type="range" min="0.2" max="1" step="0.05" @bind=_brightness @bind:event="oninput"
-           class="w-1/2 my-1" title="Brightness"/>
+    <label class="flex items-center gap-3 w-full max-w-md my-2 text-white/60" title="Brightness">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" class="shrink-0" aria-hidden="true">
+            <path fill="currentColor" d="M12 7a5 5 0 1 0 0 10a5 5 0 0 0 0-10Zm0-5a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1Zm0 17a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1ZM2 12a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm17 0a1 1 0 0 1 1-1h1a1 1 0 1 1 0 2h-1a1 1 0 0 1-1-1Z"/>
+        </svg>
+        <input type="range" min="0.2" max="1" step="0.05" @bind=_brightness @bind:event="oninput"
+               class="flex-1 accent-white" aria-label="Brightness"/>
+    </label>
 
     @if (!_reducedMotion && !_flashWarningAcknowledged)
     {
@@ -68,9 +73,13 @@
     }
     else
     {
-        <MorsePlayer MorseText="@MorseText" Language="State.Language" Kind="PlayerKind.Light" Size="PlayerSize.Full"
-                     Active="IsOpened" LampMode="_lampMode" LampColor="_lampColor" LampBrightness="_brightness"
-                     ReducedMotion="_reducedMotion" TorchEnabled="_torchEnabled"/>
+        @* The player fills what's left under the header and slider, not the whole sheet: at full
+           sheet height it pushed its own controls off the bottom. *@
+        <div class="flex-1 min-h-0 w-full">
+            <MorsePlayer MorseText="@MorseText" Language="State.Language" Kind="PlayerKind.Light" Size="PlayerSize.Full"
+                         Active="IsOpened" LampMode="_lampMode" LampColor="_lampColor" LampBrightness="_brightness"
+                         ReducedMotion="_reducedMotion" TorchEnabled="_torchEnabled"/>
+        </div>
     }
 
 </div>

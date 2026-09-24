@@ -13,8 +13,11 @@
         </svg>
     </button>
 
-    <MorsePlayer @ref="_player" MorseText="@MorseText" Language="State.Language" Kind="PlayerKind.Sound"
-                 Size="PlayerSize.Full" Active="IsOpened" DownloadName="@DownloadName"/>
+    @* Fills what's left under the close button, so a short screen can't push the controls off. *@
+    <div class="flex-1 min-h-0 w-full">
+        <MorsePlayer @ref="_player" MorseText="@MorseText" Language="State.Language" Kind="PlayerKind.Sound"
+                     Size="PlayerSize.Full" Active="IsOpened" DownloadName="@DownloadName"/>
+    </div>
 
 </div>
 
