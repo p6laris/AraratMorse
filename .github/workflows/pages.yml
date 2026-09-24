@@ -5,16 +5,21 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+# Allow the workflow to publish to Pages.
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
-# A newer push supersedes a deploy that's still running.
+# One deployment at a time; let an in-flight run finish rather than cancelling it halfway through
+# a deploy.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
+    name: Publish Blazor WebAssembly
     runs-on: ubuntu-latest
 
     steps:
@@ -27,6 +32,9 @@ jobs:
 
       - name: Install the wasm-tools workload (AOT)
         run: dotnet workload install wasm-tools
+
+      - name: Test
+        run: dotnet test AraratMorse.sln -c Release --nologo
 
       - name: Publish
         run: dotnet publish ./AraratMorse/AraratMorse.csproj -c Release -o release --nologo
@@ -46,11 +54,24 @@ jobs:
           cp release/wwwroot/index.html release/wwwroot/404.html
           rm -f release/wwwroot/index.html.br release/wwwroot/index.html.gz
 
+      # Without this, Pages' Jekyll pass strips the _framework directory.
       - name: Disable Jekyll
         run: touch release/wwwroot/.nojekyll
 
-      - name: Deploy to the gh-pages branch
-        uses: JamesIves/github-pages-deploy-action@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          branch: gh-pages
-          folder: release/wwwroot
+          path: release/wwwroot
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

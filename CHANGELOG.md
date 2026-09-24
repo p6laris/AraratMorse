@@ -54,6 +54,9 @@ A rebuild on .NET 10 and MorseSharp 6, and the practice features that MorseSharp
 - Pull requests and pushes to `dev` build with warnings as errors, check that `app.css` is
   regenerated, and run the `AraratMorse.Tests` unit tests. The deploy verifies its base-href
   rewrite and serves the app as `404.html`.
+- The Pages deploy runs the tests first and publishes through GitHub's Pages actions instead of
+  a `gh-pages` branch.
+- Tagging `vX.Y.Z` creates a GitHub Release with git-cliff notes (`cliff.toml`) and a zipped build.
 
 ## [1.0.0]
 

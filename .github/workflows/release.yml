@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to (re)create the release for (e.g. v2.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write    # To create GitHub Releases and upload release assets
+
+jobs:
+  release:
+    name: Test, publish & create the GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # git-cliff needs the whole history and the tags to find the previous release.
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Determine version
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "VERSION=${TAG#v}" >> $GITHUB_OUTPUT
+          echo "Releasing $TAG"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.x
+
+      - name: Install the wasm-tools workload (AOT)
+        run: dotnet workload install wasm-tools
+
+      - name: Test
+        run: dotnet test AraratMorse.sln -c Release --nologo
+
+      # A self-hostable build for the release page, served from the domain root (Pages rewrites
+      # the base href for its /AraratMorse/ path; this copy keeps "/").
+      - name: Publish
+        run: >
+          dotnet publish ./AraratMorse/AraratMorse.csproj -c Release -o release --nologo
+          -p:Version=${{ steps.version.outputs.VERSION }}
+
+      - name: Package the site
+        run: |
+          cp release/wwwroot/index.html release/wwwroot/404.html
+          rm -f release/wwwroot/index.html.br release/wwwroot/index.html.gz
+          touch release/wwwroot/.nojekyll
+          (cd release/wwwroot && zip -qr "$GITHUB_WORKSPACE/AraratMorse-${{ steps.version.outputs.TAG }}.zip" .)
+
+      - name: Generate release notes (git-cliff)
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: Ararat Morse ${{ steps.version.outputs.TAG }}
+          body_path: RELEASE_NOTES.md
+          files: AraratMorse-${{ steps.version.outputs.TAG }}.zip
