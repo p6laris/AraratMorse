@@ -2,7 +2,7 @@
 
 All notable changes to Ararat Morse. Versions are tagged `vX.Y.Z` when they reach `main` and deploy.
 
-## [2.0.0] - Unreleased
+## [2.0.0] - 2026-09-27
 
 A rebuild on .NET 10 and MorseSharp 6, and the practice features that MorseSharp 6 made possible.
 
@@ -63,4 +63,5 @@ A rebuild on .NET 10 and MorseSharp 6, and the practice features that MorseSharp
 The original converter: encode and decode in 10 languages, with audio and light playback, on
 Blazor WebAssembly with Fluxor and MorseSharp 4.1.4.
 
-[2.0.0]: https://github.com/p6laris/AraratMorse/compare/main...dev
+[2.0.0]: https://github.com/p6laris/AraratMorse/compare/v1.0.0...v2.0.0
+[1.0.0]: https://github.com/p6laris/AraratMorse/tree/v1.0.0
