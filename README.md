@@ -7,7 +7,9 @@ copying it until you can read it by ear.
 
 **Try it:** https://p6laris.github.io/AraratMorse/
 
-![Ararat Morse](AraratMorse.png)
+![Ararat Morse on a laptop, tablet and phones](assets/showcase.png)
+
+![Every page of Ararat Morse on desktop and phone](assets/screens.png)
 
 ## Features
 
